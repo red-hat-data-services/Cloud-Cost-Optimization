@@ -45,9 +45,10 @@ def main():
     clusters_to_hibernate = [cluster for cluster in clusters if (cluster.type == 'osd' or (cluster.type == 'rosa' and cluster.hcp == 'false')) and cluster.status == 'ready']
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
-        print(cluster.name, cluster.type)
-        # hibernate_cluster(cluster.name)
+        print('starting with', cluster.name, cluster.type)
+        hibernate_cluster(cluster.name)
         hibernated_clusters.append(cluster.__dict__)
+        print(f'Hibernated {cluster.name}')
 
     print(json.dumps(hibernated_clusters, indent=4))
 
