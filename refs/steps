@@ -1,0 +1,3 @@
+get all the clusters from OCM
+filter OSD clusters
+filter ROSA classic clusters : HCP - false

@@ -1,0 +1,41 @@
+name: Hibernate Clusters
+run-name: Hibernate Clusters
+on:
+  workflow_dispatch:
+#    inputs:
+#      dry_run:
+#        type: boolean
+#        description: 'Dry-Run'
+#        required: true
+#        default: True
+  schedule:
+    - cron: '0 0 * * 6'
+
+jobs:
+  hibernate-clusters:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Setup OCM CLI
+        env:
+          OCM_TOKEN: ${{ secrets.OCM_TOKEN }}
+        run: |
+          cp bin/ocm /usr/local/bin/ocm
+          chmod +x /usr/local/bin/ocm
+          ocm login --token="${OCM_TOKEN}"
+          ocm list clusters
+          ocm list clusters > clusters.txt
+      - name: Hibernate Clusters
+#        env:
+#          AWS_KEY: ${{ secrets.GTJ_JIRA_TOKEN }}
+#          AWS_SECRET: ${{ secrets.GTJ_JIRA_TOKEN }}
+        run: |
+          python hibernate_clusters.py

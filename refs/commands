@@ -1,0 +1,4 @@
+aws ec2 describe-instances > ec2.json
+ocm list clusters > clusters.txt
+ocm hibernate cluster <name/id>
+ocm describe cluster <name/id>
