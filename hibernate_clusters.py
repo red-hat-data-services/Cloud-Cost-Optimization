@@ -17,6 +17,7 @@ class oc_cluster:
         self.region = details[7]
         self.status = details[8]
         self.nodes = []
+        self.hibernate_error = ''
 def get_cluster_list():
     run_command('ocm list clusters > clusters.txt')
 def run_command(command):
@@ -24,11 +25,12 @@ def run_command(command):
     print(output)
     return output
 
-def hibernate_cluster(cluster_name):
-    commmand = f'ocm hibernate cluster {cluster_name}'
-    run_command(commmand)
+def hibernate_cluster(cluster: oc_cluster):
+    commmand = f'ocm hibernate cluster {cluster.id}'
+    output = run_command(commmand)
+    cluster.hibernate_error = output
     print(commmand)
-    print(f'Hibernated {cluster_name}')
+    print(f'Hibernated {cluster.name}')
 
 def resume_cluster(cluster_name):
     commmand = f'ocm hibernate cluster {cluster_name}'
@@ -47,7 +49,7 @@ def main():
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
         print('starting with', cluster.name, cluster.type)
-        hibernate_cluster(cluster.name)
+        hibernate_cluster(cluster)
         hibernated_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
