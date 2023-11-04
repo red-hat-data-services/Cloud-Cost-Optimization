@@ -27,7 +27,7 @@ def run_command(command):
 def hibernate_cluster(cluster_name):
     commmand = f'ocm hibernate cluster {cluster_name}'
     run_command(commmand)
-    print(run_command())
+    print(commmand)
     print(f'Hibernated {cluster_name}')
 
 def resume_cluster(cluster_name):
