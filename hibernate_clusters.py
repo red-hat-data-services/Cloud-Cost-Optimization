@@ -46,6 +46,10 @@ def main():
     print(len(clusters))
 
     clusters_to_hibernate = [cluster for cluster in clusters if (cluster.type == 'osd' or (cluster.type == 'rosa' and cluster.hcp == 'false')) and cluster.status == 'ready']
+    print('cluster to hibernate')
+    for cluster in clusters_to_hibernate:
+        print(cluster.name, cluster.type)
+
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
         print('starting with', cluster.name, cluster.type)
