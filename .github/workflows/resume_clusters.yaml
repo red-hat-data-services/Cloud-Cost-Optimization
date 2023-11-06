@@ -9,7 +9,7 @@ on:
 #        required: true
 #        default: True
   schedule:
-    - cron: '0 0 * * 6'
+    - cron: '30 04 * * 1'
 
 jobs:
   hibernate-clusters:
@@ -33,9 +33,9 @@ jobs:
           ocm login --token="${OCM_TOKEN}"
           ocm list clusters
           ocm list clusters > clusters.txt
-      - name: Hibernate Clusters
-#        env:
-#          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+      - name: Resume Clusters
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python hibernate_clusters.py
+          python resume_clusters.py

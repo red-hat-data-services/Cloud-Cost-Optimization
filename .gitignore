@@ -154,6 +154,7 @@ cython_debug/
 ec2.json
 poc.py
 clusters.txt
+hibernated_latest.json
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
