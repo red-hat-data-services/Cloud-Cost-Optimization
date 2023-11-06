@@ -1,5 +1,5 @@
-name: Hibernate Clusters
-run-name: Hibernate Clusters
+name: Resume Clusters
+run-name: Resume Clusters
 on:
   workflow_dispatch:
 #    inputs:
@@ -12,7 +12,7 @@ on:
     - cron: '30 04 * * 1'
 
 jobs:
-  hibernate-clusters:
+  resume-clusters:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
