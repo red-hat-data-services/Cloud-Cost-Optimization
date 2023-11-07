@@ -1,5 +1,5 @@
-name: Resume Clusters
-run-name: Resume Clusters
+name: Hibernate Clusters On Weekend
+run-name: Hibernate Clusters On Weekend
 on:
   workflow_dispatch:
 #    inputs:
@@ -9,10 +9,10 @@ on:
 #        required: true
 #        default: True
   schedule:
-    - cron: '30 04 * * 1'
+    - cron: '0 0 * * 6'
 
 jobs:
-  resume-clusters:
+  hibernate-clusters:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
@@ -33,9 +33,9 @@ jobs:
           ocm login --token="${OCM_TOKEN}"
           ocm list clusters
           ocm list clusters > clusters.txt
-      - name: Resume Clusters
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+      - name: Hibernate Clusters
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python resume_clusters.py
+          python hibernate_clusters_weekend.py

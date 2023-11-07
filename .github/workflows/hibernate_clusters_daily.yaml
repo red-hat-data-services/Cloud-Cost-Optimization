@@ -1,15 +1,8 @@
-name: Hibernate Clusters
-run-name: Hibernate Clusters
+name: Hibernate Clusters On Weekend
+run-name: Hibernate Clusters On Weekend
 on:
-  workflow_dispatch:
-#    inputs:
-#      dry_run:
-#        type: boolean
-#        description: 'Dry-Run'
-#        required: true
-#        default: True
   schedule:
-    - cron: '0 0 * * 6'
+    - cron: '0 18 * * *'
 
 jobs:
   hibernate-clusters:
@@ -38,4 +31,4 @@ jobs:
 #          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
 #          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python hibernate_clusters.py
+          python hibernate_clusters_daily.py

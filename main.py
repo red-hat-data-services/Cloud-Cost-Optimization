@@ -48,7 +48,7 @@ def main():
         clusters.append(oc_cluster(cluster_detail))
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     print(len(clusters))
-
+    print([cluster.name for cluster in clusters])
     osd_rosa_ec2 = []
     for cluster in clusters:
         cluster.nodes += [ec2_name for ec2_name in ec2_names if ec2_name.startswith(f'{cluster.name}-')]
@@ -66,17 +66,10 @@ def main():
 
     print(osd_rosa_ec2)
     print(len(osd_rosa_ec2))
-    ec2 = boto3.client('ec2')
-    clusters_to_hibernate = [cluster for cluster in clusters if (cluster.type == 'osd' or (cluster.type == 'rosa' and cluster.hcp == 'false')) and cluster.status == 'ready']
-    hibernated_clusters = []
-    for cluster in clusters_to_hibernate:
-        print(cluster.name, cluster.type)
-        # hibernate_cluster(cluster.name)
-        hibernated_clusters.append(cluster.__dict__)
-
-    print(json.dumps(hibernated_clusters, indent=4))
-
-
+    osd_clusters = [cluster for cluster in clusters if cluster.type == 'osd']
+    osd_names = sorted([cluster.name for cluster in osd_clusters])
+    for cluster in osd_names:
+        print(cluster)
     # iam = boto3.client('iam')
     # username = iam.get_user()["User"]["UserName"]
     # print(username)
