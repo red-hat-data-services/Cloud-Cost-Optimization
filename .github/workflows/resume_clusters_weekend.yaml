@@ -1,5 +1,5 @@
-name: Resume Clusters
-run-name: Resume Clusters
+name: Resume Clusters After Weekend
+run-name: Resume Clusters After Weekend
 on:
   workflow_dispatch:
 #    inputs:

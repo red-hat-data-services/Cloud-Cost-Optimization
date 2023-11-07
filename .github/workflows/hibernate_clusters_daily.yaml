@@ -1,5 +1,5 @@
-name: Hibernate Clusters On Weekend
-run-name: Hibernate Clusters On Weekend
+name: Hibernate Clusters Daily
+run-name: Hibernate Clusters Daily
 on:
   schedule:
     - cron: '0 18 * * *'
