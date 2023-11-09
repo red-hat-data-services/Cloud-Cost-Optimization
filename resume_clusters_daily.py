@@ -57,7 +57,7 @@ def main():
     for cluster in clusters_to_hibernate:
         if cluster.name == 'chris-osd':
             print('starting with', cluster.name, cluster.type)
-            # resume_cluster(cluster)
+            resume_cluster(cluster)
             resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
