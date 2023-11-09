@@ -32,10 +32,10 @@ def hibernate_cluster(cluster: oc_cluster):
     print(commmand)
     print(f'Hibernated {cluster.name}')
 
-def resume_cluster(cluster_name):
-    commmand = f'ocm hibernate cluster {cluster_name}'
+def resume_cluster(cluster: oc_cluster):
+    commmand = f'ocm resume cluster {cluster.id}'
     run_command(commmand)
-    print(f'Hibernated {cluster_name}')
+    print(f'Resumed {cluster.name}')
 def main():
     clusters = []
     # get_cluster_list()
@@ -48,20 +48,20 @@ def main():
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     print(len(clusters))
 
-    clusters_to_hibernate = [cluster for cluster in clusters if (cluster.type == 'osd' or (cluster.type == 'rosa' and cluster.hcp == 'false')) and cluster.status == 'ready']
+    clusters_to_hibernate = [cluster for cluster in clusters if (cluster.type == 'osd' or (cluster.type == 'rosa' and cluster.hcp == 'false')) and cluster.status == 'hibernating']
     # print('cluster to hibernate')
     # for cluster in clusters_to_hibernate:
     #     print(cluster.name, cluster.type)
 
-    hibernated_clusters = []
+    resumed_clusters = []
     for cluster in clusters_to_hibernate:
-        if cluster.name == 'aisrhods-d' or cluster.name == 'aisrhods-dim' or cluster.name == 'chris-osd':
+        if cluster.name == 'chris-osd':
             print('starting with', cluster.name, cluster.type)
-            # hibernate_cluster(cluster)
-            hibernated_clusters.append(cluster.__dict__)
+            # resume_cluster(cluster)
+            resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
-    print(json.dumps(hibernated_clusters, indent=4))
+    print(json.dumps(resumed_clusters, indent=4))
 
 
 if __name__ == '__main__':

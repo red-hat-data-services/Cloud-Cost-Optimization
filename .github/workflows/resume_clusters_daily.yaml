@@ -1,13 +1,13 @@
-name: Hibernate Clusters Daily
-run-name: Hibernate Clusters Daily
+name: Resume Clusters Daily
+run-name: Resume Clusters Daily
 on:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 
 jobs:
-  hibernate-clusters:
+  resume-clusters:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
@@ -31,9 +31,9 @@ jobs:
           ocm login --token="${OCM_TOKEN}"  --url stage
           ocm list clusters
           ocm list clusters --no-headers > clusters_STAGE.txt
-      - name: Hibernate Clusters
+      - name: Resume Clusters
 #        env:
 #          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
 #          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python hibernate_clusters_daily.py
+          python resume_clusters_daily.py
