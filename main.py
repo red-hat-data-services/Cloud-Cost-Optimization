@@ -34,6 +34,7 @@ def resume_cluster(cluster_name):
     run_command(commmand)
     print(f'Hibernated {cluster_name}')
 def main():
+
     ec2_map = json.load(open('ec2.json'))
     ec2_map = [ec2 for ec2 in ec2_map['Reservations'] if ec2['Instances'][0]['State']['Name'] == 'running']
     ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
@@ -48,7 +49,8 @@ def main():
         clusters.append(oc_cluster(cluster_detail))
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     print(len(clusters))
-    print([cluster.name for cluster in clusters])
+    cluster_names = [cluster.name for cluster in clusters]
+    print(cluster_names)
     osd_rosa_ec2 = []
     for cluster in clusters:
         cluster.nodes += [ec2_name for ec2_name in ec2_names if ec2_name.startswith(f'{cluster.name}-')]
@@ -58,18 +60,34 @@ def main():
     print(len(ec2_map))
     print(ec2_names)
     ec2_names = [ec2_name for ec2_name in ec2_names if ec2_map[ec2_name]]
+    unused_instances = []
+    def is_existing_cluster(ec2_name):
+        result = False
+        for cluster_name in cluster_names:
+            if ec2_name.startswith(cluster_name):
+                result = True
+                break
+        return result
+
+
     for ec2_name in ec2_names:
         tags = ec2_map[ec2_name]['Tags']
         tags = {tag['Key']:tag['Value'] for tag in tags}
         if 'red-hat-clustertype' in tags and (tags['red-hat-clustertype'] == 'osd' or tags['red-hat-clustertype'] == 'rosa'):
             osd_rosa_ec2.append(ec2_name)
+        if not is_existing_cluster(ec2_name):
+            unused_instances.append(ec2_name)
+
+
 
     print(osd_rosa_ec2)
     print(len(osd_rosa_ec2))
-    osd_clusters = [cluster for cluster in clusters if cluster.type == 'osd']
-    osd_names = sorted([cluster.name for cluster in osd_clusters])
-    for cluster in osd_names:
-        print(cluster)
+    print(len(unused_instances))
+    print(unused_instances)
+    # osd_clusters = [cluster for cluster in clusters if cluster.type == 'osd']
+    # osd_names = sorted([cluster.name for cluster in osd_clusters])
+    # for cluster in osd_names:
+    #     print(cluster)
     # iam = boto3.client('iam')
     # username = iam.get_user()["User"]["UserName"]
     # print(username)

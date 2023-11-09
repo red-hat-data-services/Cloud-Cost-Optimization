@@ -1,1 +1,2 @@
 boto3~=1.26.111
+smartsheet-python-sdk~=3.0.2
