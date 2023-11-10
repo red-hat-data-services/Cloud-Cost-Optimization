@@ -60,7 +60,7 @@ def main():
     hibernated_json = json.dumps(hibernated_clusters, indent=4)
     print(hibernated_json)
     open('hibernated_latest.json', 'w').write(hibernated_json)
-    s3 = boto3.resource('s3')
+    s3 = boto3.client('s3')
     try:
         s3.upload_file('hibernated_latest.json', 'rhods-devops', 'Cloud-Cost-Optimization/Weekend-Hibernation/hibernated_latest.json')
     except Exception as e:
