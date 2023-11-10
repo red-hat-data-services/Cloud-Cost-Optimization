@@ -35,7 +35,7 @@ jobs:
       - name: Hibernate Clusters
         env:
           OCM_TOKEN: ${{ secrets.OCM_TOKEN }}
-#          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
           python hibernate_clusters_weekend.py
