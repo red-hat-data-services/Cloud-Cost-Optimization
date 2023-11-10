@@ -16,22 +16,32 @@ class oc_cluster:
         self.region = cluster_detail['region']
         self.status = cluster_detail['status']
         self.resume_error = ''
-def get_cluster_list():
-    run_command('ocm list clusters > clusters.txt')
+        self.ocm_account = cluster_detail['ocm_account']
+def get_all_cluster_details(ocm_account:str, clusters:dict):
+    get_cluster_list(ocm_account)
+    clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
+    for cluster_detail in clusters_details:
+        clusters.append(oc_cluster(cluster_detail, ocm_account))
+    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
 
-def get_last_hibernated():
-    s3 = boto3.client('s3')
-    s3.download_file('rhods-devops', 'Cloud-Cost-Optimization/Weekend-Hibernation/hibernated_latest.json', 'hibernated_latest.json')
+def get_cluster_list(ocm_account:str):
+    run_command(f'./get_all_cluster_details.sh {ocm_account}')
 def run_command(command):
+    print(command)
     output = os.popen(command).read()
     print(output)
     return output
 
+def get_last_hibernated():
+    s3 = boto3.client('s3')
+    s3.download_file('rhods-devops', 'Cloud-Cost-Optimization/Weekend-Hibernation/hibernated_latest.json', 'hibernated_latest.json')
+
+
+def hibernate_cluster(cluster: oc_cluster):
+    run_command(f'./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def resume_cluster(cluster: oc_cluster):
-    commmand = f'ocm resume cluster {cluster.id}'
-    run_command(commmand)
-    print(f'Resumed {cluster.name}')
+    run_command(f'./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 def main():
     get_last_hibernated()
     clusters_to_resume = []
@@ -41,7 +51,7 @@ def main():
     resumed_clusters = []
     for cluster in clusters_to_resume:
         print('starting with', cluster.name, cluster.type)
-        resume_cluster(cluster)
+        # resume_cluster(cluster)
         resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
