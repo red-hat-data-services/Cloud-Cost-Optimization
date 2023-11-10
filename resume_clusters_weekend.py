@@ -51,7 +51,7 @@ def main():
     resumed_clusters = []
     for cluster in clusters_to_resume:
         print('starting with', cluster.name, cluster.type)
-        # resume_cluster(cluster)
+        resume_cluster(cluster)
         resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
