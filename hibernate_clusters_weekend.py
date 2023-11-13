@@ -88,9 +88,8 @@ def main():
     for cluster in clusters_to_hibernate:
         print('starting with', cluster.name, cluster.type)
         if cluster.hcp == "false":
-            # hibernate_cluster(cluster)
-            pass
-        elif cluster.name == 'dchouras-hcp':
+            hibernate_cluster(cluster)
+        else:
             hybernate_hypershift_cluster(cluster, ec2_instances)
         hibernated_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')

@@ -36,13 +36,41 @@ def get_last_hibernated():
     s3 = boto3.client('s3')
     s3.download_file('rhods-devops', 'Cloud-Cost-Optimization/Weekend-Hibernation/hibernated_latest.json', 'hibernated_latest.json')
 
+def resume_hypershift_cluster(cluster:oc_cluster, ec2_instances:dict):
+    ec2_map = ec2_instances[cluster.region]
+    print([name for name in ec2_map])
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes]
+    print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
+    ec2_client.start_instances(InstanceIds=InstanceIds)
 
 def hibernate_cluster(cluster: oc_cluster):
     run_command(f'./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def resume_cluster(cluster: oc_cluster):
     run_command(f'./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
+
+def get_instances_for_region(region):
+    ec2_client = boto3.client('ec2', region_name=region)
+    filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
+    ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=1000)
+    ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
+    ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
+    ec2_map = {list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags']))[0]['Value']: instance for instance in
+               ec2_map}
+    print(region, len(ec2_map))
+    return ec2_map
+
+def get_all_instances(ec2_instances):
+    client = boto3.client('ec2')
+    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
+    for region in regions:
+        ec2_instances[region] = get_instances_for_region(region)
+
 def main():
+    ec2_instances = {}
+    get_all_instances(ec2_instances)
     get_last_hibernated()
     clusters_to_resume = []
     clusters = json.load(open('hibernated_latest.json'))
@@ -51,7 +79,10 @@ def main():
     resumed_clusters = []
     for cluster in clusters_to_resume:
         print('starting with', cluster.name, cluster.type)
-        resume_cluster(cluster)
+        if cluster.hcp == "false":
+            resume_cluster(cluster)
+        else:
+            resume_hypershift_cluster(cluster, ec2_instances)
         resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
