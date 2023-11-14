@@ -1,4 +1,6 @@
 import json
+import time
+
 import boto3
 import os
 
@@ -43,7 +45,28 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_instances:dict):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes]
     print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
-    ec2_client.start_instances(InstanceIds=InstanceIds)
+    worker_count = len(InstanceIds)
+    ec2_client.terminate_instances(InstanceIds=InstanceIds)
+
+def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
+    time.sleep(15)
+    ec2_map = get_instances_for_region(cluster.region, 'running')
+    InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    while len(InstanceIds) < worker_count:
+        time.sleep(5)
+        ec2_map = get_instances_for_region(cluster.region, 'running')
+        InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+
+    status_map = get_instance_status(cluster, InstanceIds)
+    while set(status_map.values()) != set(['ok_ok']):
+        time.sleep(10)
+        status_map = get_instance_status(cluster, InstanceIds)
+
+def get_instance_status(cluster:oc_cluster, InstanceIds:list):
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    ec2_map = ec2_client.describe_instances(InstanceIds=InstanceIds)
+    status_map = {ec2['InstanceId']:f"{ec2['InstanceStatus']['Status']}_{ec2['SystemStatus']['Status']}" for ec2 in ec2_map['InstanceStatuses']}
+    return status_map
 
 def hibernate_cluster(cluster: oc_cluster):
     run_command(f'./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
@@ -51,9 +74,9 @@ def hibernate_cluster(cluster: oc_cluster):
 def resume_cluster(cluster: oc_cluster):
     run_command(f'./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 
-def get_instances_for_region(region):
+def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
-    filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
+    filters = [{'Name': 'instance-state-name', 'Values': [current_state]}]
     ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=1000)
     ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
     ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
@@ -62,15 +85,15 @@ def get_instances_for_region(region):
     print(region, len(ec2_map))
     return ec2_map
 
-def get_all_instances(ec2_instances):
+def get_all_instances(ec2_instances, current_state):
     client = boto3.client('ec2')
     regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
     for region in regions:
-        ec2_instances[region] = get_instances_for_region(region)
+        ec2_instances[region] = get_instances_for_region(region, current_state)
 
 def main():
     ec2_instances = {}
-    get_all_instances(ec2_instances)
+    get_all_instances(ec2_instances, 'stopped')
     get_last_hibernated()
     clusters_to_resume = []
     clusters = json.load(open('hibernated_latest.json'))
