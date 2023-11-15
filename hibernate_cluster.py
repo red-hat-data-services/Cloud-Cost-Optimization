@@ -70,7 +70,7 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
 def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
     time.sleep(15)
     ec2_map = get_instances_for_region(cluster.region, 'stopped')
-    InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
     while len(InstanceIds) < worker_count:
         print('Worker nodes stopping, please wait...')
         time.sleep(5)
