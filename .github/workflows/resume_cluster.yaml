@@ -35,7 +35,7 @@ jobs:
           chmod +x /usr/local/bin/ocm
           ocm login --token="${OCM_TOKEN}"
           ocm list clusters
-      - name: Resume Clusters
+      - name: Resume Cluster
         env:
           OCM_TOKEN: ${{ secrets.OCM_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
