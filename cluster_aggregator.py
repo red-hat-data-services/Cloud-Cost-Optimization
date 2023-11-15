@@ -114,7 +114,7 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
 
     for cluster_id, row_id in existingRows.items():
         if cluster_id not in existingClusterIds:
-            smartsheet_deleted_data.append(row_id)
+            smartsheet_deleted_data.append(str(row_id))
 
     if smartsheet_existing_data:
         payload = json.dumps(smartsheet_existing_data, indent=4)
