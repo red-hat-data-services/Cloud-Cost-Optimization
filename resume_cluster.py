@@ -155,7 +155,7 @@ def main():
         else:
             resume_hypershift_cluster(target_cluster, ec2_map)
         print('starting the smartsheet update')
-        ca.main()
+        # ca.main()
         print('Resumed the cluster:')
         print(target_cluster.__dict__)
 
