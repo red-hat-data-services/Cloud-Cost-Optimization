@@ -61,7 +61,7 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
     else:
-        print(f'Cluster {cluster.name} is already hibernated.')
+        sys.exit(f'Cluster {cluster.name} is already hibernated.')
 
 def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
