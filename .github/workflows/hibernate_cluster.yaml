@@ -1,0 +1,45 @@
+name: Hibernate Cluster
+run-name: Hibernate Cluster
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Cluster Name'
+        required: true
+      ocm_account:
+        type: choice
+        description: 'OCM Account'
+        required: true
+        options:
+          - PROD (console.redhat.com)
+          - STAGE (qaprodauth.console.redhat.com)
+
+jobs:
+  hibernate-cluster:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Setup OCM CLI
+        env:
+          OCM_TOKEN: ${{ secrets.OCM_TOKEN }}
+        run: |
+          cp bin/ocm /usr/local/bin/ocm
+          chmod +x /usr/local/bin/ocm
+          ocm login --token="${OCM_TOKEN}"
+          ocm list clusters
+      - name: Hibernate Clusters
+        env:
+          OCM_TOKEN: ${{ secrets.OCM_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+        run: |
+          
+          python hibernate_cluster.py --cluster_name "${{ github.event.inputs.cluster_name }}" --ocm_account "${{ github.event.inputs.ocm_account }}"

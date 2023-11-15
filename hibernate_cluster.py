@@ -1,6 +1,6 @@
 import json
 import sys
-
+import time
 import boto3
 import os
 import argparse
@@ -59,11 +59,38 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes]
     if len(InstanceIds) > 0:
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
+        wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
+        print(f'Done hibernating the cluster {cluster.name}')
     else:
         print(f'Cluster {cluster.name} is already hibernated.')
 
 
+def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
+    time.sleep(15)
+    ec2_map = get_instances_for_region(cluster.region, 'stopped')
+    InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    while len(InstanceIds) < worker_count:
+        print('Worker nodes stopping, please wait...')
+        time.sleep(5)
+        ec2_map = get_instances_for_region(cluster.region, 'stopped')
+        InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+
+    status_map = get_instance_status(cluster, InstanceIds)
+    while set(status_map.values()) != set(['stopped']):
+        print('Worker nodes stopping, please wait...')
+        time.sleep(5)
+        status_map = get_instance_status(cluster, InstanceIds)
+
+
+def get_instance_status(cluster:oc_cluster, InstanceIds:list):
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    ec2_map = ec2_client.describe_instances(InstanceIds=InstanceIds)
+    ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
+    ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
+    status_map = {ec2['InstanceId']:ec2['State']['Name'] for ec2 in ec2_map}
+    return status_map
 
 def run_command(command):
     print(command)
@@ -95,7 +122,7 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
-
+    args.ocm_account = args.ocm_account.split(' ')[0]
 
 
     clusters = []
@@ -121,6 +148,7 @@ def main():
                 print(f'Cluster {target_cluster.name} is not in ready state, please wait for it to be ready and try again')
         else:
             hybernate_hypershift_cluster(target_cluster, ec2_map)
+        print('starting the smartsheet update')
         ca.main()
         print('Hibernated the cluster:')
         print(target_cluster.__dict__)

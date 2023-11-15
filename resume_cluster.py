@@ -73,6 +73,7 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         worker_count = len(InstanceIds)
         ec2_client.terminate_instances(InstanceIds=InstanceIds)
         wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
+        print(f'Done resuming the cluster {cluster.name}')
     else:
         print(f'Cluster {cluster.name} is already running.')
 
@@ -95,7 +96,7 @@ def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
 
 def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
-    ec2_map = ec2_client.describe_instances(InstanceIds=InstanceIds)
+    ec2_map = ec2_client.describe_instance_status(InstanceIds=InstanceIds)
     status_map = {ec2['InstanceId']:f"{ec2['InstanceStatus']['Status']}_{ec2['SystemStatus']['Status']}" for ec2 in ec2_map['InstanceStatuses']}
     return status_map
 
@@ -129,6 +130,7 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+    args.ocm_account = args.ocm_account.split(' ')[0]
     clusters = []
 
     get_all_cluster_details(args.ocm_account, clusters)
@@ -152,6 +154,7 @@ def main():
                 print(f'Cluster {target_cluster.name} is not in hibernating state')
         else:
             resume_hypershift_cluster(target_cluster, ec2_map)
+        print('starting the smartsheet update')
         ca.main()
         print('Resumed the cluster:')
         print(target_cluster.__dict__)
