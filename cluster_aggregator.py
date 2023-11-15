@@ -130,7 +130,9 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
 
     if smartsheet_deleted_data:
         print('Deleting old clusters', smartsheet_deleted_data)
-        response = smart.Passthrough.delete(f'/sheets/{sheed_id}/rows?ids={",".join(smartsheet_deleted_data)}', payload)
+        delete_url = f'/sheets/{sheed_id}/rows?ids={",".join(smartsheet_deleted_data)}'
+        print(delete_url)
+        response = smart.Passthrough.delete(delete_url)
         print(response)
 
 
