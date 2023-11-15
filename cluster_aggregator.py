@@ -19,7 +19,7 @@ class oc_cluster:
         self.nodes = []
         self.ocm_account = ocm_account
 
-def get_all_cluster_details(ocm_account:str, clusters:dict):
+def get_all_cluster_details(ocm_account:str, clusters:list):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
@@ -95,9 +95,11 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
 
     # process existing data
     existingRows = {row.cells[0].value: row.id for row in sheet.rows}
+    existingClusterIds = [cluster.id for cluster in clusters]
 
     smartsheet_existing_data = []
     smartsheet_new_data = []
+    smartsheet_deleted_data = []
 
     for cluster in clusters:
         rowObject = {}
@@ -110,17 +112,27 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
             rowObject['cells'] = build_cells(cluster, column_map)
             smartsheet_new_data.append(rowObject)
 
+    for cluster_id, row_id in existingRows.items():
+        if cluster_id not in existingClusterIds:
+            smartsheet_deleted_data.append(row_id)
+
     if smartsheet_existing_data:
         payload = json.dumps(smartsheet_existing_data, indent=4)
-        print(payload)
+        print('Adding new clusters', payload)
         response = smart.Passthrough.put(f'/sheets/{sheed_id}/rows', payload)
         print(response)
 
     if smartsheet_new_data:
         payload = json.dumps(smartsheet_new_data, indent=4)
-        print(payload)
+        print('Updating existing clusters', payload)
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/rows', payload)
         print(response)
+
+    if smartsheet_deleted_data:
+        print('Deleting old clusters', smartsheet_deleted_data)
+        response = smart.Passthrough.delete(f'/sheets/{sheed_id}/rows?ids={",".join(smartsheet_deleted_data)}', payload)
+        print(response)
+
 
 def main():
     clusters = []
