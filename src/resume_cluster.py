@@ -49,7 +49,7 @@ def get_all_instances(ec2_instances, current_state):
 
 
 def get_cluster_list(ocm_account:str):
-    run_command(f'./get_all_cluster_details.sh {ocm_account}')
+    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
 
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
@@ -59,37 +59,46 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes]
     if len(InstanceIds) > 0:
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
-        worker_count = len(InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
-        wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
-        print(f'Done hibernating the cluster {cluster.name}')
     else:
         print(f'Cluster {cluster.name} is already hibernated.')
 
+def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
+    # ec2_map = ec2_instances[cluster.region]
+    print([name for name in ec2_map])
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes]
+    if len(InstanceIds) > 0:
+        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        ec2_client.terminate_instances(InstanceIds=InstanceIds)
+        wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
+        print(f'Done resuming the cluster {cluster.name}')
+    else:
+        print(f'Cluster {cluster.name} is already running.')
 
-def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
+def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
     time.sleep(15)
-    ec2_map = get_instances_for_region(cluster.region, 'stopped')
+    ec2_map = get_instances_for_region(cluster.region, 'running')
     InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
     while len(InstanceIds) < worker_count:
-        print('Worker nodes stopping, please wait...')
+        print('Worker nodes starting, please wait...')
         time.sleep(5)
-        ec2_map = get_instances_for_region(cluster.region, 'stopped')
+        ec2_map = get_instances_for_region(cluster.region, 'running')
         InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
 
     status_map = get_instance_status(cluster, InstanceIds)
-    while set(status_map.values()) != set(['stopped']):
-        print('Worker nodes stopping, please wait...')
+    while set(status_map.values()) != set(['ok_ok']):
+        print('Worker nodes initializing, please wait...')
         time.sleep(5)
         status_map = get_instance_status(cluster, InstanceIds)
 
 
 def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
-    ec2_map = ec2_client.describe_instances(InstanceIds=InstanceIds)
-    ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
-    ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
-    status_map = {ec2['InstanceId']:ec2['State']['Name'] for ec2 in ec2_map}
+    ec2_map = ec2_client.describe_instance_status(InstanceIds=InstanceIds)
+    status_map = {ec2['InstanceId']:f"{ec2['InstanceStatus']['Status']}_{ec2['SystemStatus']['Status']}" for ec2 in ec2_map['InstanceStatuses']}
     return status_map
 
 def run_command(command):
@@ -99,10 +108,10 @@ def run_command(command):
     return output
 
 def hibernate_cluster(cluster: oc_cluster):
-    run_command(f'./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
+    run_command(f'script/./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def resume_cluster(cluster: oc_cluster):
-    run_command(f'./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
+    run_command(f'script/./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -111,7 +120,7 @@ def parse_arguments():
 
     parser.add_argument("--cluster_name", dest="cluster_name",
                         action="store",
-                        help="Provide the cluster name to hibernate", required=True)
+                        help="Provide the cluster name to resume", required=True)
 
     parser.add_argument("--ocm_account", dest="ocm_account",
                         action="store",
@@ -123,8 +132,6 @@ def parse_arguments():
 def main():
     args = parse_arguments()
     args.ocm_account = args.ocm_account.split(' ')[0]
-
-
     clusters = []
 
     get_all_cluster_details(args.ocm_account, clusters)
@@ -139,19 +146,20 @@ def main():
 
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
-        ec2_map = get_instances_for_region(target_cluster.region, 'running')
-        print('starting to hibernate ', target_cluster.name)
+        ec2_map = get_instances_for_region(target_cluster.region, 'stopped')
+        print('starting to resume ', target_cluster.name)
         if target_cluster.hcp == "false":
-            if target_cluster.status == "ready":
-                hibernate_cluster(target_cluster)
+            if target_cluster.status == "hibernating":
+                resume_cluster(target_cluster)
             else:
-                print(f'Cluster {target_cluster.name} is not in ready state, please wait for it to be ready and try again')
+                print(f'Cluster {target_cluster.name} is not in hibernating state')
         else:
-            hybernate_hypershift_cluster(target_cluster, ec2_map)
+            resume_hypershift_cluster(target_cluster, ec2_map)
         print('starting the smartsheet update')
         ca.main()
-        print('Hibernated the cluster:')
+        print('Resumed the cluster:')
         print(target_cluster.__dict__)
+
 
 
 

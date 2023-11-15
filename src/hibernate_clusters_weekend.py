@@ -45,7 +45,7 @@ def get_all_instances(ec2_instances, current_state):
 
 
 def get_cluster_list(ocm_account:str):
-    run_command(f'./get_all_cluster_details.sh {ocm_account}')
+    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
 
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_instances:dict):
     ec2_map = ec2_instances[cluster.region]
@@ -65,10 +65,10 @@ def run_command(command):
     return output
 
 def hibernate_cluster(cluster: oc_cluster):
-    run_command(f'./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
+    run_command(f'script/./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def resume_cluster(cluster: oc_cluster):
-    run_command(f'./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
+    run_command(f'script/./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 def main():
     ec2_instances = {}
     get_all_instances(ec2_instances, 'running')

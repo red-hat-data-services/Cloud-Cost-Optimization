@@ -33,4 +33,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python cluster_aggregator.py
+          python src/cluster_aggregator.py

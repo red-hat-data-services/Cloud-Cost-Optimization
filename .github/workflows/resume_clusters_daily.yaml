@@ -34,4 +34,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python resume_clusters_daily.py
+          python src/resume_clusters_daily.py

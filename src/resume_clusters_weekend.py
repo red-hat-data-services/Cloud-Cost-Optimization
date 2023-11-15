@@ -27,7 +27,7 @@ def get_all_cluster_details(ocm_account:str, clusters:dict):
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
 
 def get_cluster_list(ocm_account:str):
-    run_command(f'./get_all_cluster_details.sh {ocm_account}')
+    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
 def run_command(command):
     print(command)
     output = os.popen(command).read()
@@ -69,10 +69,10 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     return status_map
 
 def hibernate_cluster(cluster: oc_cluster):
-    run_command(f'./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
+    run_command(f'script/./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def resume_cluster(cluster: oc_cluster):
-    run_command(f'./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
+    run_command(f'script/./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
