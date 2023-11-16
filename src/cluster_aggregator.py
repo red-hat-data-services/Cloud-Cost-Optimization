@@ -154,12 +154,21 @@ def get_all_instances(ec2_instances, current_state):
     regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
     for region in regions:
         ec2_instances[region] = get_instances_for_region(region, current_state)
+
+def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
+    result = False
+    for tag in ec2_instance['Tags']:
+        if tag['Key'] == 'api.openshift.com/name' and tag['Value'] == cluster_name:
+            result = True
+            break
+    return result
+
 def update_rosa_hosted_clusters_status(clusters:list[oc_cluster]):
     ec2_instances = {}
     get_all_instances(ec2_instances, 'running')
     for cluster in clusters:
         if cluster.type == 'rosa' and cluster.hcp == 'true':
-            worker_instances = [instance_name for instance_name in ec2_instances[cluster.region] if instance_name.startswith(f'{cluster.name}-workers-')]
+            worker_instances = [instance_name for instance_name in ec2_instances[cluster.region] if instance_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_instances[cluster.region][instance_name], cluster.name)]
             if len(worker_instances) == 0:
                 cluster.status = 'hibernating'
 
