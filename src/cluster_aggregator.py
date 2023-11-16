@@ -127,8 +127,8 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         print('Adding new clusters', payload)
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/rows', payload)
         print(response)
-    payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
-    response = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
+        payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
+        response = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
 
     if smartsheet_deleted_data:
         print('Deleting old clusters', smartsheet_deleted_data)
