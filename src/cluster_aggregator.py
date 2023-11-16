@@ -127,6 +127,8 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         print('Adding new clusters', payload)
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/rows', payload)
         print(response)
+    payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
+    response = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
 
     if smartsheet_deleted_data:
         print('Deleting old clusters', smartsheet_deleted_data)
@@ -134,6 +136,7 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         print(delete_url)
         response = smart.Passthrough.delete(delete_url)
         print(response)
+
 
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
