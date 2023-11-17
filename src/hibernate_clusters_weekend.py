@@ -40,7 +40,7 @@ def get_instances_for_region(region, current_state):
     return ec2_map
 
 def get_all_instances(ec2_instances, current_state):
-    client = boto3.client('ec2')
+    client = boto3.client('ec2', region_name='us-east-1')
     regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
     for region in regions:
         ec2_instances[region] = get_instances_for_region(region, current_state)
