@@ -103,7 +103,7 @@ def main():
             # resume_cluster(cluster)
             print("OSD or ROSA Classic - ", cluster.name)
         else:
-            if cluster.name == 'kpostlet':
+            if cluster.name == 'et-gpu-2':
                 resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
             print("Hypershift cluster - ", cluster.name)
         resumed_clusters.append(cluster.__dict__)
