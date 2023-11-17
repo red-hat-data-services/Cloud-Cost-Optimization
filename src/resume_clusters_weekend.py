@@ -38,35 +38,32 @@ def get_last_hibernated():
     s3 = boto3.client('s3')
     s3.download_file('rhods-devops', 'Cloud-Cost-Optimization/Weekend-Hibernation/hibernated_latest.json', 'hibernated_latest.json')
 
-def resume_hypershift_cluster(cluster:oc_cluster, ec2_instances:dict):
-    ec2_map = ec2_instances[cluster.region]
+def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
+    result = False
+    for tag in ec2_instance['Tags']:
+        if tag['Key'] == 'api.openshift.com/name' and tag['Value'] == cluster_name:
+            result = True
+            break
+    return result
+
+def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
+    # ec2_map = ec2_instances[cluster.region]
+
     print([name for name in ec2_map])
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
-    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes]
-    print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
-    worker_count = len(InstanceIds)
-    ec2_client.terminate_instances(InstanceIds=InstanceIds)
-
-def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
-    time.sleep(15)
-    ec2_map = get_instances_for_region(cluster.region, 'running')
-    InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
-    while len(InstanceIds) < worker_count:
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
+    if len(InstanceIds) > 0:
+        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        ec2_client.terminate_instances(InstanceIds=InstanceIds)
+        print(f'Done resuming the cluster {cluster.name}')
         time.sleep(5)
-        ec2_map = get_instances_for_region(cluster.region, 'running')
-        InstanceIds = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-workers-')]
+    else:
+        print(f'Cluster {cluster.name} is already running.')
 
-    status_map = get_instance_status(cluster, InstanceIds)
-    while set(status_map.values()) != set(['ok_ok']):
-        time.sleep(10)
-        status_map = get_instance_status(cluster, InstanceIds)
 
-def get_instance_status(cluster:oc_cluster, InstanceIds:list):
-    ec2_client = boto3.client('ec2', region_name=cluster.region)
-    ec2_map = ec2_client.describe_instances(InstanceIds=InstanceIds)
-    status_map = {ec2['InstanceId']:f"{ec2['InstanceStatus']['Status']}_{ec2['SystemStatus']['Status']}" for ec2 in ec2_map['InstanceStatuses']}
-    return status_map
+
 
 def hibernate_cluster(cluster: oc_cluster):
     run_command(f'script/./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
@@ -103,9 +100,12 @@ def main():
     for cluster in clusters_to_resume:
         print('starting with', cluster.name, cluster.type)
         if cluster.hcp == "false":
-            resume_cluster(cluster)
+            # resume_cluster(cluster)
+            print("OSD or ROSA Classic - ", cluster.name)
         else:
-            resume_hypershift_cluster(cluster, ec2_instances)
+            if cluster.name == 'kpostlet':
+                resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
+            print("Hypershift cluster - ", cluster.name)
         resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
 
