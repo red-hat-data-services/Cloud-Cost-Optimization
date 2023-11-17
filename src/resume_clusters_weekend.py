@@ -100,11 +100,10 @@ def main():
     for cluster in clusters_to_resume:
         print('starting with', cluster.name, cluster.type)
         if cluster.hcp == "false":
-            # resume_cluster(cluster)
+            resume_cluster(cluster)
             print("OSD or ROSA Classic - ", cluster.name)
         else:
-            if cluster.name == 'et-gpu-2':
-                resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
+            resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
             print("Hypershift cluster - ", cluster.name)
         resumed_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
