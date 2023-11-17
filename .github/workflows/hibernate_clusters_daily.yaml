@@ -1,8 +1,8 @@
 name: Hibernate Clusters Daily
 run-name: Hibernate Clusters Daily
 on:
-  schedule:
-    - cron: '0 18 * * *'
+#  schedule:
+#    - cron: '0 18 * * *'
   workflow_dispatch:
 
 
