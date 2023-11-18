@@ -92,7 +92,7 @@ def main():
     ec2_running_instances = {}
     get_all_instances(ec2_running_instances, 'running')
     ec2_stopped_instances = {}
-    get_all_instances(ec2_running_instances, 'stopped')
+    get_all_instances(ec2_stopped_instances, 'stopped')
 
     clusters = []
     ocm_accounts = ['PROD', 'STAGE']
