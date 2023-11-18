@@ -69,7 +69,7 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
 
     ec2_client = boto3.client('ec2', region_name=cluster.region)
 
-    if len(running_worker_nodes) > 0 and len(stopped_worker_nodes) > 0:
+    if len(InstanceIds_running) > 0 and len(InstanceIds_stopped) > 0:
         print(f'Stopping Running Worker Instances of cluster {cluster.name}', InstanceIds_running)
         ec2_client.stop_instances(InstanceIds=InstanceIds_running)
         print(f'Started hibernating the cluster {cluster.name}')
