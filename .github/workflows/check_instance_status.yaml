@@ -9,7 +9,7 @@ on:
 #        required: true
 #        default: True
   schedule:
-    - cron: '55 * * * *'
+    - cron: '*/30 * * * *'
 
 jobs:
   hibernate-clusters:
