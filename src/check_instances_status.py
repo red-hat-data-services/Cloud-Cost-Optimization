@@ -64,7 +64,7 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
                    worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
 
     stopped_worker_nodes = [ec2_name for ec2_name in ec2_stopped_map if ec2_name.startswith(f'{cluster.name}-')]
-    InstanceIds_stopped = [ec2_running_map[worker_node]['InstanceId'] for worker_node in stopped_worker_nodes if
+    InstanceIds_stopped = [ec2_stopped_map[worker_node]['InstanceId'] for worker_node in stopped_worker_nodes if
                    worker_node_belongs_to_the_hcp_cluster(ec2_stopped_map[worker_node], cluster.name)]
 
     ec2_client = boto3.client('ec2', region_name=cluster.region)
