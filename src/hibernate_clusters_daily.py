@@ -105,6 +105,22 @@ def get_clusters_from_smartsheet():
 def hibernate_cluster(cluster: oc_cluster):
     run_command(f'script/./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
+def good_time_to_hibernate_cluster(inactive_hours_start:str):
+    buffer_hours = 2
+    buffer_seconds = buffer_hours * 60 * 60
+    day_start_time = '00:00:00'
+    day_end_time = '23:59:59'
+    inactive_hours_start = time.strptime(inactive_hours_start, '%H:%M:%S')
+    current_utc_time = time.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
+                                         '%H:%M:%S')
+    day_start_time = datetime.datetime.strptime(day_start_time, '%H:%M:%S')
+    day_end_time = datetime.datetime.strptime(day_end_time, '%H:%M:%S')
+    diff = (current_utc_time - inactive_hours_start).total_seconds()
+    if diff < 0 and 24 - buffer_hours < inactive_hours_start.hour <= 24 and  0 <= current_utc_time.hour <= buffer_hours:
+        diff = (day_end_time - inactive_hours_start).total_seconds() + (current_utc_time - day_start_time).total_seconds()
+
+    return 0 <= diff <= buffer_seconds
+
 def resume_cluster(cluster: oc_cluster):
     run_command(f'script/./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 def main():
@@ -128,13 +144,12 @@ def main():
                     continue
                 if smartsheet_cluster_info[0].count(':') == 1:
                     smartsheet_cluster_info[0] += ':00'
-                cluster.inactive_hours_start = time.strptime(smartsheet_cluster_info[0], '%H:%M:%S')
+                cluster.inactive_hours_start = smartsheet_cluster_info[0]
 
     hibernated_clusters = []
     for cluster in clusters:
-        current_utc_time = time.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-                                         '%H:%M:%S')
-        if cluster.inactive_hours_start and current_utc_time >= cluster.inactive_hours_start:
+
+        if cluster.inactive_hours_start and good_time_to_hibernate_cluster(cluster.inactive_hours_start):
             if cluster.hcp == "false":
                 hibernate_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)

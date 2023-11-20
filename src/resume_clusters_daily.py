@@ -114,6 +114,23 @@ def resume_cluster(cluster: oc_cluster):
     run_command(f'script/./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 
 
+def good_time_to_resume_cluster(inactive_hours_end: str):
+    buffer_hours = 2
+    buffer_seconds = buffer_hours * 60 * 60
+    day_start_time = '00:00:00'
+    day_end_time = '23:59:59'
+    inactive_hours_end = time.strptime(inactive_hours_end, '%H:%M:%S')
+    current_utc_time = time.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
+                                     '%H:%M:%S')
+    day_start_time = datetime.datetime.strptime(day_start_time, '%H:%M:%S')
+    day_end_time = datetime.datetime.strptime(day_end_time, '%H:%M:%S')
+    diff = (current_utc_time - inactive_hours_end).total_seconds()
+    if diff < 0 and 24 - buffer_hours < inactive_hours_end.hour <= 24 and 0 <= current_utc_time.hour <= buffer_hours:
+        diff = (day_end_time - inactive_hours_end).total_seconds() + (
+                    current_utc_time - day_start_time).total_seconds()
+
+    return 0 <= diff <= buffer_seconds
+
 def main():
     ec2_instances = {}
     get_all_instances(ec2_instances, 'stopped')
@@ -135,13 +152,11 @@ def main():
                     continue
                 if smartsheet_cluster_info[1].count(':') == 1:
                     smartsheet_cluster_info[1] += ':00'
-                cluster.inactive_hours_end = time.strptime(smartsheet_cluster_info[1], '%H:%M:%S')
+                cluster.inactive_hours_end = smartsheet_cluster_info[1]
 
     hibernated_clusters = []
     for cluster in clusters:
-        current_utc_time = time.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-                                         '%H:%M:%S')
-        if cluster.inactive_hours_end and current_utc_time >= cluster.inactive_hours_end:
+        if cluster.inactive_hours_end and good_time_to_resume_cluster(cluster.inactive_hours_end):
             if cluster.hcp == "false":
                 resume_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
