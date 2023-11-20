@@ -119,8 +119,8 @@ def good_time_to_resume_cluster(inactive_hours_end: str):
     buffer_seconds = buffer_hours * 60 * 60
     day_start_time = '00:00:00'
     day_end_time = '23:59:59'
-    inactive_hours_end = time.strptime(inactive_hours_end, '%H:%M:%S')
-    current_utc_time = time.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
+    inactive_hours_end = datetime.datetime.strptime(inactive_hours_end, '%H:%M:%S')
+    current_utc_time = datetime.datetime.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
                                      '%H:%M:%S')
     day_start_time = datetime.datetime.strptime(day_start_time, '%H:%M:%S')
     day_end_time = datetime.datetime.strptime(day_end_time, '%H:%M:%S')
