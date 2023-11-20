@@ -101,7 +101,7 @@ def get_clusters_from_smartsheet():
 
     # get existing data
     smartsheet_data = {
-        row.cells[0].value: [row.cells[inactive_hours_start_index].value, row.cells[inactive_hours_start_index].value]
+        row.cells[0].value: [row.cells[inactive_hours_start_index].value, row.cells[inactive_hours_end_index].value]
         for row in sheet.rows}
     return smartsheet_data
 
