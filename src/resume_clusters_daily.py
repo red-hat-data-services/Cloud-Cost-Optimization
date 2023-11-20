@@ -116,7 +116,7 @@ def resume_cluster(cluster: oc_cluster):
 
 def main():
     ec2_instances = {}
-    get_all_instances(ec2_instances, 'running')
+    get_all_instances(ec2_instances, 'stopped')
 
     clusters: list[oc_cluster] = []
     ocm_accounts = ['PROD', 'STAGE']
