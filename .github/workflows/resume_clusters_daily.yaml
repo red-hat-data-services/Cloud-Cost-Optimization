@@ -1,8 +1,8 @@
 name: Resume Clusters Daily
 run-name: Resume Clusters Daily
 on:
-#  schedule:
-#    - cron: '0 9 * * 1-5'
+  schedule:
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 

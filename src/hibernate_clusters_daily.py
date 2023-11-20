@@ -136,11 +136,10 @@ def main():
                                          '%H:%M:%S')
         if cluster.inactive_hours_start and current_utc_time >= cluster.inactive_hours_start:
             if cluster.hcp == "false":
-                # hibernate_cluster(cluster)
+                hibernate_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
             else:
-                if cluster.name == 'as1984':
-                    hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
 
