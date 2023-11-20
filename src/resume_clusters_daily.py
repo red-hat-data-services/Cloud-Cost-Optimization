@@ -158,10 +158,10 @@ def main():
     for cluster in clusters:
         if cluster.inactive_hours_end and good_time_to_resume_cluster(cluster.inactive_hours_end):
             if cluster.hcp == "false":
-                resume_cluster(cluster)
+                # resume_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
             else:
-                resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                # resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
 

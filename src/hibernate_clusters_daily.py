@@ -151,10 +151,10 @@ def main():
 
         if cluster.inactive_hours_start and good_time_to_hibernate_cluster(cluster.inactive_hours_start):
             if cluster.hcp == "false":
-                hibernate_cluster(cluster)
+                # hibernate_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
             else:
-                hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                # hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
 
