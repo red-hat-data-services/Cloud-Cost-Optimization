@@ -139,7 +139,8 @@ def main():
                 # hibernate_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
             else:
-                # hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                if cluster.name == 'as1984':
+                    hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
 
