@@ -1,5 +1,5 @@
-name: Check Instance Status
-run-name: Check Instance Status
+name: Cleanup Cloud Resource
+run-name: Cleanup Cloud Resource
 on:
   workflow_dispatch:
 #    inputs:
@@ -8,11 +8,11 @@ on:
 #        description: 'Dry-Run'
 #        required: true
 #        default: True
-  schedule:
-    - cron: '10 */2 * * *'
+#  schedule:
+#    - cron: '10 */2 * * *'
 
 jobs:
-  check-status:
+  cloud-cleaner:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
@@ -31,12 +31,11 @@ jobs:
           cp bin/ocm /usr/local/bin/ocm
           chmod +x /usr/local/bin/ocm
           ocm login --token="${OCM_TOKEN}"
-          ocm list clusters
-      - name: Check Status
+      - name: Cleanup Cloud Resources
         env:
           OCM_TOKEN: ${{ secrets.OCM_TOKEN }}
           SMARTSHEET_ACCESS_TOKEN: ${{ secrets.SMARTSHEET_ACCESS_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          python src/check_instances_status.py
+          python src/cloud_cleaner.py
