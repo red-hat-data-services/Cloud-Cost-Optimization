@@ -57,6 +57,24 @@ def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
             break
     return result
 
+def check_if_given_tag_exists(tag_name, tags:list[dict]):
+    print(tags)
+    result = False
+    for tag in tags:
+        if tag['Key'] == tag_name:
+            result = True
+            break
+    return result
+
+def delete_volume(volume_id, region):
+    ec2_client = boto3.client('ec2', region_name=region)
+    for attempt in range(7):
+        try:
+            ec2_client.delete_volume(VolumeId=volume_id)
+            print(f'Deleted the volume {volume_id}')
+        except:
+            time.sleep(5)
+
 def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_map:dict):
     # ec2_map = ec2_instances[cluster.region]
     running_worker_nodes = [ec2_name for ec2_name in ec2_running_map if ec2_name.startswith(f'{cluster.name}-')]
@@ -68,6 +86,20 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
                    worker_node_belongs_to_the_hcp_cluster(ec2_stopped_map[worker_node], cluster.name)]
 
     ec2_client = boto3.client('ec2', region_name=cluster.region)
+
+    # detach and delete the volumes
+    filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds_stopped}]
+    attached_volumes = ec2_client.describe_volumes(Filters=filters)
+    attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
+                        if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
+            'KubernetesCluster', volume['Tags'])]
+    print('attached_volumes', attached_volumes)
+    for volume in attached_volumes:
+        print(f'detaching the volume {volume["VolumeId"]}')
+        ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
+    for volume in attached_volumes:
+        print(f'deleting the volume {volume["VolumeId"]}')
+        delete_volume(volume['VolumeId'], cluster.region)
 
     if len(InstanceIds_running) > 0 and len(InstanceIds_stopped) > 0:
         print(f'Stopping Running Worker Instances of cluster {cluster.name}', InstanceIds_running)
