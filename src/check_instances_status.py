@@ -90,16 +90,17 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
     # detach and delete the volumes
     filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds_stopped}]
     attached_volumes = ec2_client.describe_volumes(Filters=filters)
-    attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
-                        if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
-            'KubernetesCluster', volume['Tags'])]
-    print('attached_volumes', attached_volumes)
-    for volume in attached_volumes:
-        print(f'detaching the volume {volume["VolumeId"]}')
-        ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
-    for volume in attached_volumes:
-        print(f'deleting the volume {volume["VolumeId"]}')
-        delete_volume(volume['VolumeId'], cluster.region)
+    if attached_volumes['Volumes']:
+        attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
+                            if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
+                'KubernetesCluster', volume['Tags'])]
+        print('attached_volumes', attached_volumes)
+        for volume in attached_volumes:
+            print(f'detaching the volume {volume["VolumeId"]}')
+            ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
+        for volume in attached_volumes:
+            print(f'deleting the volume {volume["VolumeId"]}')
+            delete_volume(volume['VolumeId'], cluster.region)
 
     if len(InstanceIds_running) > 0 and len(InstanceIds_stopped) > 0:
         print(f'Stopping Running Worker Instances of cluster {cluster.name}', InstanceIds_running)
