@@ -121,7 +121,7 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     return status_map
 
 def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
-    time.sleep(15)
+    time.sleep(5)
     ec2_map = get_instances_for_region(cluster.region, 'stopped')
     InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
     while len(InstanceIds) < worker_count:
