@@ -82,20 +82,20 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
-        wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
-        # detach and delete the volumes
-        filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
-        attached_volumes = ec2_client.describe_volumes(Filters=filters)
-        attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
-                            if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
-                'KubernetesCluster', volume['Tags'])]
-        print('attached_volumes', attached_volumes)
-        for volume in attached_volumes:
-            print(f'detaching the volume {volume["VolumeId"]}')
-            ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
-        for volume in attached_volumes:
-            print(f'deleting the volume {volume["VolumeId"]}')
-            delete_volume(volume['VolumeId'], cluster.region)
+        # wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
+        # # detach and delete the volumes
+        # filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
+        # attached_volumes = ec2_client.describe_volumes(Filters=filters)
+        # attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
+        #                     if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
+        #         'KubernetesCluster', volume['Tags'])]
+        # print('attached_volumes', attached_volumes)
+        # for volume in attached_volumes:
+        #     print(f'detaching the volume {volume["VolumeId"]}')
+        #     ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
+        # for volume in attached_volumes:
+        #     print(f'deleting the volume {volume["VolumeId"]}')
+        #     delete_volume(volume['VolumeId'], cluster.region)
 
         print(f'Done hibernating the cluster {cluster.name}')
     else:
