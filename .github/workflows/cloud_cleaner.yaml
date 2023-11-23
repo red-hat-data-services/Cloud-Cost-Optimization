@@ -1,4 +1,4 @@
-name: Cleanup Cloud Resource
+name: Cleanup Cloud Resources
 run-name: Cleanup Cloud Resource
 on:
   workflow_dispatch:

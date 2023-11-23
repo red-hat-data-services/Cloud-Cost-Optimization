@@ -1,4 +1,37 @@
-import boto3
+import json
+
+import boto3, os
+
+class oc_cluster:
+    def __init__(self, cluster_detail, ocm_account):
+        details = cluster_detail.split(' ')
+        details = [detail for detail in details if detail]
+        self.id = details[0]
+        self.name = details[1]
+        self.api_url = details[2]
+        self.ocp_version = details[3]
+        self.type = details[4]
+        self.hcp = details[5]
+        self.cloud_provider = details[6]
+        self.region = details[7]
+        self.status = details[8]
+        self.nodes = []
+        self.ocm_account = ocm_account
+
+def get_all_cluster_details(ocm_account:str, clusters:list):
+    get_cluster_list(ocm_account)
+    clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
+    for cluster_detail in clusters_details:
+        clusters.append(oc_cluster(cluster_detail, ocm_account))
+    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+
+def get_cluster_list(ocm_account:str):
+    run_command(f'../script/./get_all_cluster_details.sh {ocm_account}')
+
+def run_command(command):
+    output = os.popen(command).read()
+    print(output)
+    return output
 
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
@@ -39,12 +72,153 @@ def cleanup_available_volumes(volumes:dict):
         print(f'starting to clean volumes for region {region}')
         for volumeId in ebs_volumes:
             print(f'Deleting volume {volumeId}')
-            ec2_client.delete_volume(VolumeId=volumeId)
+            # ec2_client.delete_volume(VolumeId=volumeId)
+
+def get_all_elbs(elbs):
+    client = boto3.client('ec2', region_name='us-east-1')
+    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
+    for region in regions:
+        elbs[region] = get_elbs_for_region(region)
+
+def get_elbs_for_region(region):
+    aws_client = boto3.client('elb', region_name=region)
+    all_elb_map = {}
+    elb_map = aws_client.describe_load_balancers(PageSize=400)
+    elb_map = [elb for elb in elb_map['LoadBalancerDescriptions']]
+    print(region, len(elb_map))
+    all_elb_map['nlb'] = elb_map
+
+    aws_client = boto3.client('elbv2', region_name=region)
+    elb_map = aws_client.describe_load_balancers(PageSize=400)
+    elb_map = [elb for elb in elb_map['LoadBalancers']]
+    print(region, len(elb_map))
+    all_elb_map['alb'] = elb_map
+
+    return all_elb_map
+
+def get_target_groups_health(LoadBalancerArn, region):
+    aws_client = boto3.client('elbv2', region_name=region)
+    target_groups = aws_client.describe_target_groups(LoadBalancerArn=LoadBalancerArn)
+    healths = []
+    for target_group in target_groups['TargetGroups']:
+        targets = aws_client.describe_target_health(TargetGroupArn=target_group['TargetGroupArn'])
+        for target in targets['TargetHealthDescriptions']:
+            if 'TargetHealth' in target:
+                healths.append(target['TargetHealth']['State'])
+    return healths
+
+def name_starts_with_existing_cluster(name, cluster_names:list[str]):
+    result = False
+    for cluster_name in cluster_names:
+        if name.startswith(f'{cluster_name}-'):
+            result = True
+            break
+    return result
+
+def elb_belongs_to_existing_cluster( cluster_names:list[str], tags:dict):
+    result = False
+
+    if 'Name' in tags:
+        result = name_starts_with_existing_cluster(tags['Name'], cluster_names)
+
+    if not result:
+        for key, value in tags.items():
+            if key.startswith('kubernetes.io/cluster/'):
+                possible_cluster_suffix = key.split('/')[-1]
+                result = name_starts_with_existing_cluster(possible_cluster_suffix, cluster_names)
+                if result:
+                    break
+
+
+    return result
+
+def get_all_tags_for_elbs(ResourceArns:list, region):
+    tags = {}
+    aws_client = boto3.client('elbv2', region_name=region)
+    chunk_size = 20
+    start, end = 0, chunk_size if len(ResourceArns) > chunk_size else len(ResourceArns)
+    while end <= len(ResourceArns):
+        elb_tags = aws_client.describe_tags(ResourceArns=ResourceArns[start:end])
+        elb_tags = {elb['ResourceArn']: elb['Tags'] for elb in elb_tags['TagDescriptions']}
+        tags.update(elb_tags)
+        start, end = end, end + chunk_size if len(ResourceArns) > end + chunk_size else len(ResourceArns)
+        if start >= end:
+            break
+
+    return tags
+
+def cleanup_inactive_elbs(elbs:dict[dict], clusters:dict[oc_cluster]):
+    rosa_clusters_ids = [cluster.id for cluster in clusters if cluster.type == 'rosa']
+    osd_cluster_names = [cluster.name for cluster in clusters if cluster.type == 'osd']
+    all_cluster_names = [cluster.name for cluster in clusters]
+
+    for region, elbs_for_region in elbs.items():
+        nlbs_to_be_deleted = []
+        elbs_to_be_deleted = []
+        print(f'starting to cleanup elbs for region {region}')
+
+        print(f'starting with classic load balancers (nlb) for region {region}')
+        aws_client = boto3.client('elb', region_name=region)
+        for nlb in elbs_for_region['nlb']:
+            if not nlb['Instances']:
+                print(f'Cleaning up nlb {nlb["LoadBalancerName"]}')
+                # aws_client.delete_load_balancer(LoadBalancerName=nlb['LoadBalancerName'])
+                nlbs_to_be_deleted.append(nlb["LoadBalancerName"])
+            else:
+                print(f'Not cleaning up nlb {nlb["LoadBalancerName"]}, since it has instances attached')
+
+        print(f'starting with application load balancers (alb) for region {region}')
+        aws_client = boto3.client('elbv2', region_name=region)
+        elb_tags = {}
+        if elbs_for_region['alb']:
+            elb_tags = get_all_tags_for_elbs([alb['LoadBalancerArn'] for alb in elbs_for_region['alb']], region)
+        for alb in elbs_for_region['alb']:
+            # alb['LoadBalancerArn']
+            target_groups_health = get_target_groups_health(alb['LoadBalancerArn'], region)
+            if 'healthy' in target_groups_health:
+                print(f'Not cleaning up alb {alb["LoadBalancerArn"]}, since it has healty target groups')
+                continue
+
+
+            tags = elb_tags[alb['LoadBalancerArn']]
+            tags = {tag['Key']:tag['Value'] for tag in tags}
+            print(f'starting with alb {alb["LoadBalancerArn"]}')
+            if 'red-hat-clustertype' in tags:
+                if tags['red-hat-clustertype'] == 'rosa' and tags['api.openshift.com/id'] in rosa_clusters_ids:
+                    print(f'Not cleaning up alb {alb["LoadBalancerArn"]}, since it belongs to the existing rosa cluster {tags["api.openshift.com/id"]}')
+                    continue
+                elif tags['red-hat-clustertype'] == 'osd' and elb_belongs_to_existing_cluster(osd_cluster_names, tags):
+                    print(f'Not cleaning up alb {alb["LoadBalancerArn"]}, since it belongs to the existing osd cluster {alb["LoadBalancerName"]}')
+                    continue
+            elif elb_belongs_to_existing_cluster(all_cluster_names, tags):
+                print(f'Not cleaning up alb {alb["LoadBalancerArn"]}, since it belongs to the existing cluster {alb["LoadBalancerName"]}')
+                continue
+
+            print(f'Deleting the ALB {alb["LoadBalancerArn"]}')
+            elbs_to_be_deleted.append({alb["LoadBalancerName"] : alb["LoadBalancerArn"]})
+
+
+        print('elbs_to_be_deleted', len(elbs_to_be_deleted), json.dumps(elbs_to_be_deleted, indent=4))
+
+
+
+
+
 
 def main():
+    clusters = []
+    ocm_accounts = ['PROD', 'STAGE']
+
+    for ocm_account in ocm_accounts:
+        get_all_cluster_details(ocm_account, clusters)
     volumes = {}
     get_all_ebs_volumes(volumes, 'available')
     cleanup_available_volumes(volumes)
+
+    elbs = {}
+    get_all_elbs(elbs)
+    cleanup_inactive_elbs(elbs, clusters)
+    # print(elbs)
 
 
 if __name__ == '__main__':

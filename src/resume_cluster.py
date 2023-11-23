@@ -72,7 +72,7 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
         print(f'Done resuming the cluster {cluster.name}')
     else:
-        sys.exit(f'Cluster {cluster.name} is already running.')
+        print(f'Cluster {cluster.name} is already running.')
 
 def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
     time.sleep(15)

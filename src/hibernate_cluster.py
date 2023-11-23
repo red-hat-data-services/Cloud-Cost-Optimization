@@ -73,7 +73,7 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
         print(f'Done hibernating the cluster {cluster.name}')
     else:
-        sys.exit(f'Cluster {cluster.name} is already hibernated.')
+        print(f'Cluster {cluster.name} is already hibernated.')
 
 
 def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
