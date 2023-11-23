@@ -67,6 +67,15 @@ def check_if_given_tag_exists(tag_name, tags:list[dict]):
             break
     return result
 
+def delete_volume(volume_id, region):
+    ec2_client = boto3.client('ec2', region_name=region)
+    for attempt in range(7):
+        try:
+            ec2_client.delete_volume(VolumeId=volume_id)
+            print(f'Deleted the volume {volume_id}')
+        except:
+            time.sleep(5)
+
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
 
@@ -91,7 +100,7 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
             ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
         for volume in attached_volumes:
             print(f'deleting the volume {volume["VolumeId"]}')
-            ec2_client.delete_volume(VolumeId=volume['VolumeId'])
+            delete_volume(volume['VolumeId'], cluster.region)
         print(f'Done hibernating the cluster {cluster.name}')
     else:
         print(f'Cluster {cluster.name} is already hibernated.')
