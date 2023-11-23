@@ -75,9 +75,12 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
         attached_volumes = ec2_client.describe_volumes(Filters=filters)
         attached_volumes = [volume for volume in attached_volumes['Volumes']['Attachments']]
+        print('attached_volumes', attached_volumes)
         for volume in attached_volumes:
+            print(f'detaching the volume {volume["VolumeId"]}')
             ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
         for volume in attached_volumes:
+            print(f'deleting the volume {volume["VolumeId"]}')
             ec2_client.delete_volume(VolumeId=volume['VolumeId'])
         print(f'Done hibernating the cluster {cluster.name}')
     else:
