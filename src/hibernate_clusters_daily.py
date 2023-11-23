@@ -65,33 +65,6 @@ def delete_volume(volume_id, region):
         except:
             time.sleep(5)
 
-def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
-    # ec2_map = ec2_instances[cluster.region]
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
-    ec2_client = boto3.client('ec2', region_name=cluster.region)
-    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
-    if len(InstanceIds) > 0:
-        print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
-        worker_count = len(InstanceIds)
-        # detach and delete the volumes
-        filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
-        attached_volumes = ec2_client.describe_volumes(Filters=filters)
-        attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
-                            if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
-                'KubernetesCluster', volume['Tags'])]
-        print('attached_volumes', attached_volumes)
-        for volume in attached_volumes:
-            print(f'detaching the volume {volume["VolumeId"]}')
-            ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
-        for volume in attached_volumes:
-            print(f'deleting the volume {volume["VolumeId"]}')
-            delete_volume(volume['VolumeId'], cluster.region)
-
-        ec2_client.stop_instances(InstanceIds=InstanceIds)
-        print(f'Started hibernating the cluster {cluster.name}')
-        time.sleep(5)
-    else:
-        print(f'Cluster {cluster.name} is already hibernated.')
 
 def get_all_cluster_details(ocm_account:str, clusters:dict):
     get_cluster_list(ocm_account)
@@ -117,6 +90,20 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     if len(InstanceIds) > 0:
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
+        # detach and delete the volumes
+        filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
+        attached_volumes = ec2_client.describe_volumes(Filters=filters)
+        attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
+                            if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
+                'KubernetesCluster', volume['Tags'])]
+        print('attached_volumes', attached_volumes)
+        for volume in attached_volumes:
+            print(f'detaching the volume {volume["VolumeId"]}')
+            ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
+        for volume in attached_volumes:
+            print(f'deleting the volume {volume["VolumeId"]}')
+            delete_volume(volume['VolumeId'], cluster.region)
+
         ec2_client.stop_instances(InstanceIds=InstanceIds)
         print(f'Started hibernating the cluster {cluster.name}')
         time.sleep(5)
