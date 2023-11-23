@@ -58,6 +58,14 @@ def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
             result = True
             break
     return result
+def check_if_given_tag_exists(tag_name, tags:list[dict]):
+    print(tags)
+    result = False
+    for tag in tags:
+        if tag['Key'] == tag_name:
+            result = True
+            break
+    return result
 
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
@@ -74,7 +82,9 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         # detach and delete the volumes
         filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
         attached_volumes = ec2_client.describe_volumes(Filters=filters)
-        attached_volumes = [volume for volume in attached_volumes['Volumes']['Attachments']]
+        attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
+                            if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
+                'KubernetesCluster', volume['Tags'])]
         print('attached_volumes', attached_volumes)
         for volume in attached_volumes:
             print(f'detaching the volume {volume["VolumeId"]}')
