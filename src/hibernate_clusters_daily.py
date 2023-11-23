@@ -108,7 +108,7 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         #     print(f'deleting the volume {volume["VolumeId"]}')
         #     delete_volume(volume['VolumeId'], cluster.region)
 
-        print(f'Done hibernating the cluster {cluster.name}')
+        print(f'Started hibernating the cluster {cluster.name}')
     else:
         print(f'Cluster {cluster.name} is already hibernated.')
 
