@@ -47,7 +47,7 @@ def get_all_instances(ec2_instances, current_state):
 
 
 def get_cluster_list(ocm_account:str):
-    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
+    run_command(f'../script/./get_all_cluster_details.sh {ocm_account}')
 
 def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
     result = False
@@ -57,13 +57,15 @@ def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
             break
     return result
 
-def check_if_given_tag_exists(tag_name, tags:list[dict]):
-    print(tags)
+def check_if_given_tag_exists(tag_name, volume):
     result = False
-    for tag in tags:
-        if tag['Key'] == tag_name:
-            result = True
-            break
+    if 'Tags' in volume:
+        tags = volume['Tags']
+        print(tags)
+        for tag in tags:
+            if tag['Key'] == tag_name:
+                result = True
+                break
     return result
 
 def delete_volume(volume_id, region):
@@ -93,7 +95,7 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
     if attached_volumes['Volumes']:
         attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
                             if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
-                'KubernetesCluster', volume['Tags'])]
+                'KubernetesCluster', volume)]
         print('attached_volumes', attached_volumes)
         for volume in attached_volumes:
             print(f'detaching the volume {volume["VolumeId"]}')
