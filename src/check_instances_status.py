@@ -47,7 +47,7 @@ def get_all_instances(ec2_instances, current_state):
 
 
 def get_cluster_list(ocm_account:str):
-    run_command(f'../script/./get_all_cluster_details.sh {ocm_account}')
+    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
 
 def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
     result = False
