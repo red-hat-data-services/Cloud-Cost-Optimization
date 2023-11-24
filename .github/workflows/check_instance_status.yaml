@@ -9,7 +9,7 @@ on:
 #        required: true
 #        default: True
   schedule:
-    - cron: '*/35 * * * *'
+    - cron: '*/15 * * * *'
 
 jobs:
   check-status:
