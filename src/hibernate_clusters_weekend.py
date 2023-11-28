@@ -75,6 +75,7 @@ def delete_volume(volume_id, region):
             time.sleep(5)
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
+    result = False
     worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
@@ -98,8 +99,10 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         #     delete_volume(volume['VolumeId'], cluster.region)
 
         print(f'Started hibernating the cluster {cluster.name}')
+        result = True
     else:
         print(f'Cluster {cluster.name} is already hibernated.')
+    return result
 
 def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
@@ -153,13 +156,15 @@ def main():
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
         print('starting with', cluster.name, cluster.type)
+        outcome = True
         if cluster.hcp == "false":
             hibernate_cluster(cluster)
             print("OSD or ROSA Classic - ", cluster.name)
         else:
-            hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+            outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
             print("Hypershift cluster - ", cluster.name)
-        hibernated_clusters.append(cluster.__dict__)
+        if outcome:
+            hibernated_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
     hibernated_json = json.dumps(hibernated_clusters, indent=4)
     print(hibernated_json)
