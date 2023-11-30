@@ -243,28 +243,37 @@ def cleanup_all_netoworking_data(ec2_running_instances:dict, ec2_stopped_instanc
         ec2_client = boto3.client('ec2', region_name=region)
 
         associated_vpcs = list(set([instance['VpcId'] for instance in ec2_running_instances[region]] + [instance['VpcId'] for instance in ec2_stopped_instances[region]]))
-        print('associated_vpcs', len(associated_vpcs))
+        all_vpcs  =  ec2_client.describe_vpcs(MaxResults=500)
+        all_vpcs = [vpc['VpcId'] for vpc in all_vpcs['Vpcs']]
+        print('vpcs', len(all_vpcs), len(associated_vpcs))
 
         associated_network_interfaces = list(set([interface['NetworkInterfaceId'] for instance in ec2_running_instances[region] for interface in instance['NetworkInterfaces']] + [interface['NetworkInterfaceId'] for instance in ec2_stopped_instances[region] for interface in instance['NetworkInterfaces']]))
-        print('associated_network_interfaces', len(associated_network_interfaces))
+        all_network_interfaces  =  ec2_client.describe_network_interfaces(MaxResults=500)
+        all_network_interfaces = [network_interface['NetworkInterfaceId'] for network_interface in all_network_interfaces['NetworkInterfaces']]
+        print('network_interfaces', len(all_network_interfaces), len(associated_network_interfaces))
 
         filters = [{'Name': 'vpc-id', 'Values': associated_vpcs}]
         associated_subnets = ec2_client.describe_subnets(Filters=filters, MaxResults=500)
         associated_subnets = [subnet['SubnetId'] for subnet in associated_subnets['Subnets']]
-        print('associated_subnets', len(associated_subnets))
+        all_subnets  =  ec2_client.describe_subnets(MaxResults=500)
+        all_subnets = [subnet['SubnetId'] for subnet in all_subnets['Subnets']]
+        print('subnets', len(all_subnets), len(associated_subnets))
 
         filters = [{'Name': 'vpc-id', 'Values': associated_vpcs}] if associated_vpcs else []
         associated_nat_gateways = ec2_client.describe_nat_gateways(Filters=filters, MaxResults=500)
         associated_nat_gateways = [nat_gateway['NatGatewayId'] for nat_gateway in associated_nat_gateways['NatGateways']]
-        print('associated_nat_gateways', len(associated_nat_gateways))
+        all_nat_gateways  =  ec2_client.describe_nat_gateways(MaxResults=500)
+        all_nat_gateways = [nat_gateway['NatGatewayId'] for nat_gateway in all_nat_gateways['NatGateways']]
+        print('nat_gateways', len(all_nat_gateways), len(associated_nat_gateways))
 
         filters = [{'Name': 'network-interface-id', 'Values': associated_network_interfaces}]
         associated_elastic_ip_addresses = ec2_client.describe_addresses(Filters=filters)
         associated_elastic_ip_addresses = [elastic_ip_address['AllocationId'] for elastic_ip_address in associated_elastic_ip_addresses['Addresses']]
-        print('associated_elastic_ip_addresses', len(associated_elastic_ip_addresses))
+        all_elastic_ip_addresses  =  ec2_client.describe_addresses()
+        all_elastic_ip_addresses = [elastic_ip_address['AllocationId'] for elastic_ip_address in all_elastic_ip_addresses['Addresses']]
+        print('elastic_ip_addresses', len(all_elastic_ip_addresses), len(associated_elastic_ip_addresses))
 
-        # all_vpcs  =  ec2_client.describe_vpcs(MaxResults=500)
-        # all_vpcs = [vpc for vpc in all_vpcs['Vpcs']]
+
 
 
 

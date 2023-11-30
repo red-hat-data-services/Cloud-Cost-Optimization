@@ -155,16 +155,17 @@ def main():
 
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
-        print('starting with', cluster.name, cluster.type)
-        outcome = True
-        if cluster.hcp == "false":
-            hibernate_cluster(cluster)
-            print("OSD or ROSA Classic - ", cluster.name)
-        else:
-            outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
-            print("Hypershift cluster - ", cluster.name)
-        if outcome:
-            hibernated_clusters.append(cluster.__dict__)
+        if 'demo' not in cluster.name:
+            print('starting with', cluster.name, cluster.type)
+            outcome = True
+            if cluster.hcp == "false":
+                # hibernate_cluster(cluster)
+                print("OSD or ROSA Classic - ", cluster.name)
+            else:
+                # outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                print("Hypershift cluster - ", cluster.name)
+            if outcome:
+                hibernated_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
     hibernated_json = json.dumps(hibernated_clusters, indent=4)
     print(hibernated_json)
