@@ -159,10 +159,10 @@ def main():
             print('starting with', cluster.name, cluster.type)
             outcome = True
             if cluster.hcp == "false":
-                # hibernate_cluster(cluster)
+                hibernate_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
             else:
-                # outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
             if outcome:
                 hibernated_clusters.append(cluster.__dict__)
