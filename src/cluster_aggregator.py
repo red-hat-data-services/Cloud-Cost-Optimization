@@ -18,6 +18,10 @@ class oc_cluster:
         self.status = details[8]
         self.nodes = []
         self.ocm_account = ocm_account
+        self.creation_date = ''
+        self.creator_name = ''
+        self.creator_email = ''
+
 
 def get_all_cluster_details(ocm_account:str, clusters:list):
     get_cluster_list(ocm_account)
@@ -25,6 +29,19 @@ def get_all_cluster_details(ocm_account:str, clusters:list):
     for cluster_detail in clusters_details:
         clusters.append(oc_cluster(cluster_detail, ocm_account))
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+    update_cluster_details(clusters)
+
+def update_cluster_details(clusters:list[oc_cluster]):
+    for cluster in clusters:
+        run_command(f'script/./get_cluster_details.sh {cluster.ocm_account} {cluster.id}')
+        details = json.load(open(f'{cluster.id}_details.json'))
+        clusters.creation_date = details.creation_date
+        clusters.creator_name = details.creator_name
+        clusters.creator_email = details.creator_email
+
+
+
+
 
 def get_cluster_list(ocm_account:str):
     run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
@@ -76,11 +93,18 @@ def build_cells(cluster: oc_cluster, column_map:dict):
     column_object['columnId'] = column_map['OCM_Account']
     column_object['value'] = cluster.ocm_account
     cells.append(column_object)
-    #
-    # column_object = {}
-    # column_object['columnId'] = column_map['Owner']
-    # column_object['value'] = row_id
-    # cells.append(column_object)
+
+    column_object = {}
+    column_object['columnId'] = column_map['Owner']
+    column_object['value'] = [{ 'email': cluster.creator_email, 'name': cluster.creator_name}]
+
+    cells.append(column_object)
+
+    column_object = {}
+    column_object['columnId'] = column_map['CreatedOn']
+    column_object['value'] = cluster.creation_date
+    cells.append(column_object)
+
     return cells
 
 def update_smartsheet_data(clusters:dict[oc_cluster]):

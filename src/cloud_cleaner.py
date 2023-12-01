@@ -242,7 +242,8 @@ def cleanup_all_netoworking_data(ec2_running_instances:dict, ec2_stopped_instanc
         print(f'starting with the region {region}')
         ec2_client = boto3.client('ec2', region_name=region)
 
-        associated_vpcs = list(set([instance['VpcId'] for instance in ec2_running_instances[region]] + [instance['VpcId'] for instance in ec2_stopped_instances[region]]))
+        vpc_exceptions = ['vpc-00331e896a900165b'] #shared-rosa-hcp-vpc
+        associated_vpcs = list(set([instance['VpcId'] for instance in ec2_running_instances[region]] + [instance['VpcId'] for instance in ec2_stopped_instances[region]] + vpc_exceptions))
         all_vpcs  =  ec2_client.describe_vpcs(MaxResults=500)
         all_vpcs = [vpc['VpcId'] for vpc in all_vpcs['Vpcs']]
         print('vpcs', len(all_vpcs), len(associated_vpcs))
@@ -259,9 +260,10 @@ def cleanup_all_netoworking_data(ec2_running_instances:dict, ec2_stopped_instanc
         all_subnets = [subnet['SubnetId'] for subnet in all_subnets['Subnets']]
         print('subnets', len(all_subnets), len(associated_subnets))
 
+        nat_gateway_exceptions = ['nat-0fe88f6e5c09c380a']  # shared-rosa-hcp-vpc-use1-az1
         filters = [{'Name': 'vpc-id', 'Values': associated_vpcs}] if associated_vpcs else []
         associated_nat_gateways = ec2_client.describe_nat_gateways(Filters=filters, MaxResults=500)
-        associated_nat_gateways = [nat_gateway['NatGatewayId'] for nat_gateway in associated_nat_gateways['NatGateways']]
+        associated_nat_gateways = list(set([nat_gateway['NatGatewayId'] for nat_gateway in associated_nat_gateways['NatGateways']] + nat_gateway_exceptions))
         all_nat_gateways  =  ec2_client.describe_nat_gateways(MaxResults=500)
         all_nat_gateways = [nat_gateway['NatGatewayId'] for nat_gateway in all_nat_gateways['NatGateways']]
         print('nat_gateways', len(all_nat_gateways), len(associated_nat_gateways))
@@ -282,25 +284,25 @@ def cleanup_all_netoworking_data(ec2_running_instances:dict, ec2_stopped_instanc
 
 
 def main():
-    # clusters = []
-    # ocm_accounts = ['PROD', 'STAGE']
-    # for ocm_account in ocm_accounts:
-    #     get_all_cluster_details(ocm_account, clusters)
+    clusters = []
+    ocm_accounts = ['PROD', 'STAGE']
+    for ocm_account in ocm_accounts:
+        get_all_cluster_details(ocm_account, clusters)
 
-    ec2_running_instances = {}
-    get_all_instances(ec2_running_instances, 'running')
-    ec2_stopped_instances = {}
-    get_all_instances(ec2_stopped_instances, 'stopped')
+    # ec2_running_instances = {}
+    # get_all_instances(ec2_running_instances, 'running')
+    # ec2_stopped_instances = {}
+    # get_all_instances(ec2_stopped_instances, 'stopped')
     volumes = {}
     # get_all_ebs_volumes(volumes, 'available')
     # cleanup_available_volumes(volumes)
 
     elbs = {}
-    # get_all_elbs(elbs)
-    # cleanup_inactive_elbs(elbs, clusters)
-    # print(elbs)
+    get_all_elbs(elbs)
+    cleanup_inactive_elbs(elbs, clusters)
+    print(elbs)
 
-    cleanup_all_netoworking_data(ec2_running_instances, ec2_stopped_instances)
+    # cleanup_all_netoworking_data(ec2_running_instances, ec2_stopped_instances)
 
 
 if __name__ == '__main__':
