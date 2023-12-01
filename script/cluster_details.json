@@ -1,0 +1,6 @@
+{
+  "id" : "cluster_id",
+  "creation_date": "cluster_creation_date",
+  "creator_name": "cluster_creator_name",
+  "creator_email": "cluster_creator_email"
+}
