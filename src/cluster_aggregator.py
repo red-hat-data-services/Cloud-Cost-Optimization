@@ -208,7 +208,7 @@ def main():
 
     for ocm_account in ocm_accounts:
         get_all_cluster_details(ocm_account, clusters)
-    print('clusters after all the updates', json.dumps(clusters, indent=4))
+    print('clusters after all the updates', json.dumps([cluster.__dict__ for cluster in clusters], indent=4))
     update_rosa_hosted_clusters_status(clusters)
 
     names = [cluster.name for cluster in clusters]

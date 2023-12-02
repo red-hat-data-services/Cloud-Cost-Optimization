@@ -5,10 +5,10 @@ cluster_id=$2
 
 if [[ $ocm_account == "PROD" ]]
 then
-  ocm login --token="${OCM_SA_TOKEN}"
+  ocm login --client-id=${OCM_CLIENT_ID} --client-secret=${OCM_CLIENT_SECRET}
 elif [[ $ocm_account == "STAGE" ]]
 then
-  ocm login --token="${OCM_SA_TOKEN}" --url stage
+  ocm login --client-id=${OCM_CLIENT_ID} --client-secret=${OCM_CLIENT_SECRET} --url stage
 else
   echo "ERROR: unsupported OCM Account ${ocm_account}"
   exit 1
