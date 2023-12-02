@@ -36,9 +36,10 @@ def update_cluster_details(clusters:list[oc_cluster]):
         run_command(f'script/./get_cluster_details.sh {cluster.ocm_account} {cluster.id}')
         details = json.load(open(f'{cluster.id}_details.json'))
         print('details', details)
-        clusters.creation_date = details['creation_date']
-        clusters.creator_name = details['creator_name']
-        clusters.creator_email = details['creator_email']
+        cluster.creation_date = details['creation_date']
+        cluster.creator_name = details['creator_name']
+        if details['creator_name'] and details['creator_name'] != 'null':
+            cluster.creator_email = details['creator_email']
 
 
 
@@ -95,16 +96,18 @@ def build_cells(cluster: oc_cluster, column_map:dict):
     column_object['value'] = cluster.ocm_account
     cells.append(column_object)
 
-    column_object = {}
-    column_object['columnId'] = column_map['Owner']
-    column_object['value'] = [{ 'email': cluster.creator_email, 'name': cluster.creator_name}]
+    if cluster.creator_name and cluster.creator_email:
+        column_object = {}
+        column_object['columnId'] = column_map['Owner']
+        column_object['value'] = [{ 'email': cluster.creator_email, 'name': cluster.creator_name}]
 
-    cells.append(column_object)
+        cells.append(column_object)
 
-    column_object = {}
-    column_object['columnId'] = column_map['CreatedOn']
-    column_object['value'] = cluster.creation_date
-    cells.append(column_object)
+    if cluster.creation_date:
+        column_object = {}
+        column_object['columnId'] = column_map['CreatedOn']
+        column_object['value'] = cluster.creation_date
+        cells.append(column_object)
 
     return cells
 
