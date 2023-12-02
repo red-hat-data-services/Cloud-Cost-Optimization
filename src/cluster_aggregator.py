@@ -31,14 +31,14 @@ def get_all_cluster_details(ocm_account:str, clusters:list):
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     update_cluster_details(clusters)
 
+
 def update_cluster_details(clusters:list[oc_cluster]):
     for cluster in clusters:
         run_command(f'script/./get_cluster_details.sh {cluster.ocm_account} {cluster.id}')
         details = json.load(open(f'{cluster.id}_details.json'))
-        print('details', details)
         cluster.creation_date = details['creation_date']
         cluster.creator_name = details['creator_name']
-        if details['creator_name'] and details['creator_name'] != 'null':
+        if details['creator_email'] and details['creator_email'] != 'null':
             cluster.creator_email = details['creator_email']
 
 
@@ -98,6 +98,7 @@ def build_cells(cluster: oc_cluster, column_map:dict):
 
     if cluster.creator_name and cluster.creator_email:
         column_object = {}
+        print(f'updating owner for cluster {cluster.name} as {cluster.creator_email} and {cluster.creator_name}')
         column_object['columnId'] = column_map['Owner']
         column_object['value'] = [{ 'email': cluster.creator_email, 'name': cluster.creator_name}]
 
@@ -105,6 +106,7 @@ def build_cells(cluster: oc_cluster, column_map:dict):
 
     if cluster.creation_date:
         column_object = {}
+        print(f'updating CreatedOn for cluster {cluster.name} as {cluster.creation_date}')
         column_object['columnId'] = column_map['CreatedOn']
         column_object['value'] = cluster.creation_date
         cells.append(column_object)
@@ -206,6 +208,7 @@ def main():
 
     for ocm_account in ocm_accounts:
         get_all_cluster_details(ocm_account, clusters)
+    print('clusters after all the updates', json.dumps(clusters, indent=4))
     update_rosa_hosted_clusters_status(clusters)
 
     names = [cluster.name for cluster in clusters]
