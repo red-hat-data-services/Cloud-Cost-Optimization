@@ -100,7 +100,7 @@ def build_cells(cluster: oc_cluster, column_map:dict):
         column_object = {}
         print(f'updating owner for cluster {cluster.name} as {cluster.creator_email} and {cluster.creator_name}')
         column_object['columnId'] = column_map['Owner']
-        column_object['value'] = [{ 'email': cluster.creator_email, 'name': cluster.creator_name}]
+        column_object['value'] = [{ "email": cluster.creator_email, "name": cluster.creator_name}]
 
         cells.append(column_object)
 
