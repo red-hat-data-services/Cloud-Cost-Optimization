@@ -40,8 +40,14 @@ def update_cluster_details(clusters:list[oc_cluster]):
         cluster.creator_name = details['creator_name']
         if details['creator_email'] and details['creator_email'] != 'null':
             cluster.creator_email = details['creator_email']
+            if '+' in cluster.creator_email:
+                cluster.creator_email = get_original_email_address(cluster.creator_email)
 
 
+def get_original_email_address(email:str):
+    parts = email.split('@')
+    original_prefix = parts[0].split('+')[0]
+    return original_prefix + parts[1]
 
 
 
