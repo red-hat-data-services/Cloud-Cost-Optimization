@@ -2,5 +2,5 @@ aws ec2 describe-instances > ec2.json
 ocm list clusters > clusters.txt
 ocm hibernate cluster <name/id>
 ocm describe cluster <name/id>
-ocm get /api/accounts_mgmt/v1/subscriptions -p search="cluster_id='27bi2i7trn0ihsuneur9ka4k3fbea6f0'" | jq -r ".items|.[]|.creator"
-ocm get /api/accounts_mgmt/v1/subscriptions -p search="cluster_id='27bi2i7trn0ihsuneur9ka4k3fbea6f0'" | jq -r ".items|.[]|.created_at"
+ocm get /api/accounts_mgmt/v1/subscriptions -p search="cluster_id='<cluster_id>'" | jq -r ".items|.[]|.creator"
+ocm get /api/accounts_mgmt/v1/subscriptions -p search="cluster_id='<cluster_id>'" | jq -r ".items|.[]|.created_at"

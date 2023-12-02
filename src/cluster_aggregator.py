@@ -35,9 +35,9 @@ def update_cluster_details(clusters:list[oc_cluster]):
     for cluster in clusters:
         run_command(f'script/./get_cluster_details.sh {cluster.ocm_account} {cluster.id}')
         details = json.load(open(f'{cluster.id}_details.json'))
-        clusters.creation_date = details.creation_date
-        clusters.creator_name = details.creator_name
-        clusters.creator_email = details.creator_email
+        clusters.creation_date = details['creation_date']
+        clusters.creator_name = details['creator_name']
+        clusters.creator_email = details['creator_email']
 
 
 
