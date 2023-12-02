@@ -27,6 +27,8 @@ sed -i "s,cluster_creation_date,${creation_date},g" ${cluster_id}_details.json
 sed -i "s,cluster_creator_name,${creator_name},g" ${cluster_id}_details.json
 sed -i "s,cluster_creator_email,${creator_email},g" ${cluster_id}_details.json
 
+cat ${cluster_id}_details.json
+
 
 
 
