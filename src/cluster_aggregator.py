@@ -104,12 +104,12 @@ def build_cells(cluster: oc_cluster, column_map:dict):
 
         cells.append(column_object)
 
-    if cluster.creation_date:
-        column_object = {}
-        print(f'updating CreatedOn for cluster {cluster.name} as {cluster.creation_date}')
-        column_object['columnId'] = column_map['CreatedOn']
-        column_object['value'] = cluster.creation_date
-        cells.append(column_object)
+    # if cluster.creation_date:
+    #     column_object = {}
+    #     print(f'updating CreatedOn for cluster {cluster.name} as {cluster.creation_date}')
+    #     column_object['columnId'] = column_map['CreatedOn']
+    #     column_object['value'] = cluster.creation_date
+    #     cells.append(column_object)
 
     return cells
 
