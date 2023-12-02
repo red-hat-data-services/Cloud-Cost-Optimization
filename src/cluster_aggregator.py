@@ -47,7 +47,7 @@ def update_cluster_details(clusters:list[oc_cluster]):
 def get_original_email_address(email:str):
     parts = email.split('@')
     original_prefix = parts[0].split('+')[0]
-    return original_prefix + parts[1]
+    return f'{original_prefix}@{parts[1]}'
 
 
 
