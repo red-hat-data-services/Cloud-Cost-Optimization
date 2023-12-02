@@ -2,6 +2,7 @@
 
 ocm_account=$1
 cluster_id=$2
+ocm logout
 
 if [[ $ocm_account == "PROD" ]]
 then
@@ -14,6 +15,7 @@ else
   exit 1
 fi
 
+ocm whoami
 
 creation_date=$(ocm get /api/accounts_mgmt/v1/subscriptions -p search="cluster_id='${cluster_id}'" | jq -r ".items|.[]|.created_at")
 creator_id=$(ocm get /api/accounts_mgmt/v1/subscriptions -p search="cluster_id='${cluster_id}'" | jq -r ".items|.[]|.creator.id")
