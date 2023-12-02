@@ -98,19 +98,16 @@ def build_cells(cluster: oc_cluster, column_map:dict):
 
     if cluster.creator_name and cluster.creator_email:
         column_object = {}
-        print(f'updating owner for cluster {cluster.name} as {cluster.creator_email} and {cluster.creator_name}')
-        # column_object['columnType'] =
         column_object['columnId'] = column_map['Owner']
         column_object['value'] = cluster.creator_email #json.dumps([{ 'email': cluster.creator_email, 'name': cluster.creator_name}])
 
         cells.append(column_object)
 
-    # if cluster.creation_date:
-    #     column_object = {}
-    #     print(f'updating CreatedOn for cluster {cluster.name} as {cluster.creation_date}')
-    #     column_object['columnId'] = column_map['CreatedOn']
-    #     column_object['value'] = cluster.creation_date
-    #     cells.append(column_object)
+    if cluster.creation_date:
+        column_object = {}
+        column_object['columnId'] = column_map['CreatedOn']
+        column_object['value'] = cluster.creation_date
+        cells.append(column_object)
 
     return cells
 
@@ -209,7 +206,6 @@ def main():
 
     for ocm_account in ocm_accounts:
         get_all_cluster_details(ocm_account, clusters)
-    print('clusters after all the updates', json.dumps([cluster.__dict__ for cluster in clusters], indent=4))
     update_rosa_hosted_clusters_status(clusters)
 
     names = [cluster.name for cluster in clusters]
