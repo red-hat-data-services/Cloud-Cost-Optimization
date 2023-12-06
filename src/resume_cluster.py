@@ -187,7 +187,7 @@ def main():
         if target_cluster.name.count('-') == 4:
             result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com\/$", target_cluster.api_url)
             if result:
-                target_cluster.name == result.group(1)
+                target_cluster.name = result.group(1)
         ec2_map = get_instances_for_region(target_cluster.region, 'stopped')
         print('starting to resume ', target_cluster.name)
         if target_cluster.hcp == "false":
