@@ -222,8 +222,7 @@ def main():
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
         if target_cluster.name.count('-') == 4:
-            url = 'https://console-openshift-console.apps.egallina.ocp2.odhdev.com/'
-            result = re.search(r"^https:\/\/console-openshift-cnsole.apps.(.*).ocp2.odhdev.com\/$", url)
+            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com\/$", target_cluster.api_url)
             if result:
                 target_cluster.name == result.group(1)
 
