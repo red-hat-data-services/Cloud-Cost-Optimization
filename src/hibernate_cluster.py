@@ -6,6 +6,7 @@ import os
 import argparse
 import cluster_aggregator as ca
 import smartsheet
+import re
 
 class oc_cluster:
     def __init__(self, cluster_detail, ocm_account):
@@ -203,12 +204,14 @@ def main():
     args = parse_arguments()
     args.ocm_account = args.ocm_account.split(' ')[0]
 
+    if args.cluster_name.count('-') == 4:
+        args.cluster_name = args.cluster_name[:28]
 
     clusters = []
 
     get_all_cluster_details(args.ocm_account, clusters)
 
-    available_clusters = [cluster for cluster in clusters if cluster.type == 'osd' or cluster.type == 'rosa']
+    available_clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     target_cluster = [cluster for cluster in available_clusters if cluster.name == args.cluster_name]
     if len(target_cluster) > 1:
         sys.exit("More than one clusters found with give name.")
@@ -218,6 +221,12 @@ def main():
 
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
+        if target_cluster.name.count('-') == 4:
+            url = 'https://console-openshift-console.apps.egallina.ocp2.odhdev.com/'
+            result = re.search(r"^https:\/\/console-openshift-cnsole.apps.(.*).ocp2.odhdev.com\/$", url)
+            if result:
+                target_cluster.name == result.group(1)
+
         ec2_map = get_instances_for_region(target_cluster.region, 'running')
         print('starting to hibernate ', target_cluster.name)
         if target_cluster.hcp == "false":

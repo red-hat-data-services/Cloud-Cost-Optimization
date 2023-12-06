@@ -145,7 +145,7 @@ def main():
     for ocm_account in ocm_accounts:
         get_all_cluster_details(ocm_account, clusters)
 
-    clusters_to_hibernate = [cluster for cluster in clusters if (cluster.type == 'osd' or (cluster.type == 'rosa')) and cluster.status == 'ready']
+    clusters_to_hibernate = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and cluster.status == 'ready']
     print('cluster to hibernate')
     for cluster in clusters_to_hibernate:
         print(cluster.name, cluster.type)
