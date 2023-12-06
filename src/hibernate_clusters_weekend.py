@@ -56,6 +56,16 @@ def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
             result = True
             break
     return result
+
+def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
+    tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
+    result = 'red-hat-clustertype' not in tags and 'api.openshift.com/name' not in tags
+    for key, value in tags.items():
+        if key.startswith(f'kubernetes.io/cluster/{cluster_name}-') and value == 'owned':
+            result = result and True
+            break
+    return result
+
 def check_if_given_tag_exists(tag_name, tags:list[dict]):
     print(tags)
     result = False
@@ -83,20 +93,22 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
-        # wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
-        # # detach and delete the volumes
-        # filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
-        # attached_volumes = ec2_client.describe_volumes(Filters=filters)
-        # attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
-        #                     if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
-        #         'KubernetesCluster', volume['Tags'])]
-        # print('attached_volumes', attached_volumes)
-        # for volume in attached_volumes:
-        #     print(f'detaching the volume {volume["VolumeId"]}')
-        #     ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
-        # for volume in attached_volumes:
-        #     print(f'deleting the volume {volume["VolumeId"]}')
-        #     delete_volume(volume['VolumeId'], cluster.region)
+
+        print(f'Started hibernating the cluster {cluster.name}')
+        result = True
+    else:
+        print(f'Cluster {cluster.name} is already hibernated.')
+    return result
+
+def hibernate_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+    result = False
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.name)]
+    if len(InstanceIds) > 0:
+        print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        ec2_client.stop_instances(InstanceIds=InstanceIds)
 
         print(f'Started hibernating the cluster {cluster.name}')
         result = True
@@ -112,21 +124,6 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     status_map = {ec2['InstanceId']:ec2['State']['Name'] for ec2 in ec2_map}
     return status_map
 
-def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
-    time.sleep(5)
-    ec2_map = get_instances_for_region(cluster.region, 'stopped')
-    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
-    while len(InstanceIds) < worker_count:
-        print('Worker nodes stopping, please wait...')
-        time.sleep(5)
-        ec2_map = get_instances_for_region(cluster.region, 'stopped')
-        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
-
-    status_map = get_instance_status(cluster, InstanceIds)
-    while set(status_map.values()) != set(['stopped']):
-        print('Worker nodes stopping, please wait...')
-        time.sleep(5)
-        status_map = get_instance_status(cluster, InstanceIds)
 def run_command(command):
     print(command)
     output = os.popen(command).read()
@@ -155,17 +152,20 @@ def main():
 
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
-        if 'demo' not in cluster.name:
-            print('starting with', cluster.name, cluster.type)
-            outcome = True
-            if cluster.hcp == "false":
+        print('starting with', cluster.name, cluster.type)
+        outcome = True
+        if cluster.hcp == "false":
+            if cluster.type == 'ocp':
+                hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
+                print('hibernating IPI cluster - ', cluster.name)
+            else:
                 hibernate_cluster(cluster)
                 print("OSD or ROSA Classic - ", cluster.name)
-            else:
-                outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
-                print("Hypershift cluster - ", cluster.name)
-            if outcome:
-                hibernated_clusters.append(cluster.__dict__)
+        else:
+            outcome = hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+            print("Hypershift cluster - ", cluster.name)
+        if outcome:
+            hibernated_clusters.append(cluster.__dict__)
         # print(f'Hibernated {cluster.name}')
     hibernated_json = json.dumps(hibernated_clusters, indent=4)
     print(hibernated_json)

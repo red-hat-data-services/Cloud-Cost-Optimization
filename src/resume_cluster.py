@@ -90,6 +90,44 @@ def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
         time.sleep(5)
         status_map = get_instance_status(cluster, InstanceIds)
 
+def resume_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+    print([name for name in ec2_map])
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.name)]
+    if len(InstanceIds) > 0:
+        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        ec2_client.start_instances(InstanceIds=InstanceIds)
+        wait_for_ipi_cluster_to_be_ready(cluster, worker_count)
+        print(f'Done resuming the cluster {cluster.name}')
+    else:
+        print(f'Cluster {cluster.name} is already running.')
+
+def wait_for_ipi_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
+    time.sleep(15)
+    ec2_map = get_instances_for_region(cluster.region, 'running')
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.name)]
+    while len(InstanceIds) < worker_count:
+        print('Worker nodes starting, please wait...')
+        time.sleep(5)
+        ec2_map = get_instances_for_region(cluster.region, 'running')
+        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.name)]
+
+    status_map = get_instance_status(cluster, InstanceIds)
+    while set(status_map.values()) != set(['ok_ok']):
+        print('Worker nodes initializing, please wait...')
+        time.sleep(5)
+        status_map = get_instance_status(cluster, InstanceIds)
+
+def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
+    tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
+    result = 'red-hat-clustertype' not in tags and 'api.openshift.com/name' not in tags
+    for key, value in tags.items():
+        if key.startswith(f'kubernetes.io/cluster/{cluster_name}-') and value == 'owned':
+            result = result and True
+            break
+    return result
 
 def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
@@ -145,10 +183,13 @@ def main():
         ec2_map = get_instances_for_region(target_cluster.region, 'stopped')
         print('starting to resume ', target_cluster.name)
         if target_cluster.hcp == "false":
-            if target_cluster.status == "hibernating":
-                resume_cluster(target_cluster)
+            if target_cluster.type == 'ocp':
+                resume_ipi_cluster(target_cluster, ec2_map)
             else:
-                print(f'Cluster {target_cluster.name} is not in hibernating state')
+                if target_cluster.status == "hibernating":
+                    resume_cluster(target_cluster)
+                else:
+                    print(f'Cluster {target_cluster.name} is not in hibernating state')
         else:
             resume_hypershift_cluster(target_cluster, ec2_map)
         print('starting the smartsheet update')

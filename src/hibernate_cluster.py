@@ -75,6 +75,30 @@ def delete_volume(volume_id, region):
             print(f'Deleted the volume {volume_id}')
         except:
             time.sleep(5)
+def hibernate_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+    result = False
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.name)]
+    if len(InstanceIds) > 0:
+        print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        # ec2_client.stop_instances(InstanceIds=InstanceIds)
+        # wait_for_ipi_cluster_to_be_hibernated(cluster, worker_count)
+        print(f'Started hibernating the cluster {cluster.name}')
+        result = True
+    else:
+        print(f'Cluster {cluster.name} is already hibernated.')
+    return result
+
+def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
+    tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
+    result = 'red-hat-clustertype' not in tags and 'api.openshift.com/name' not in tags
+    for key, value in tags.items():
+        if key.startswith(f'kubernetes.io/cluster/{cluster_name}-') and value == 'owned':
+            result = result and True
+            break
+    return result
 
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
@@ -115,6 +139,22 @@ def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int)
         time.sleep(5)
         ec2_map = get_instances_for_region(cluster.region, 'stopped')
         InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+
+    status_map = get_instance_status(cluster, InstanceIds)
+    while set(status_map.values()) != set(['stopped']):
+        print('Worker nodes stopping, please wait...')
+        time.sleep(5)
+        status_map = get_instance_status(cluster, InstanceIds)
+
+def wait_for_ipi_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
+    time.sleep(15)
+    ec2_map = get_instances_for_region(cluster.region, 'stopped')
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.name)]
+    while len(InstanceIds) < worker_count:
+        print('Worker nodes stopping, please wait...')
+        time.sleep(5)
+        ec2_map = get_instances_for_region(cluster.region, 'stopped')
+        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.name)]
 
     status_map = get_instance_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['stopped']):
@@ -181,10 +221,14 @@ def main():
         ec2_map = get_instances_for_region(target_cluster.region, 'running')
         print('starting to hibernate ', target_cluster.name)
         if target_cluster.hcp == "false":
-            if target_cluster.status == "ready":
-                hibernate_cluster(target_cluster)
+            if target_cluster.type == 'ocp':
+                hibernate_ipi_cluster(target_cluster, ec2_map)
             else:
-                print(f'Cluster {target_cluster.name} is not in ready state, please wait for it to be ready and try again')
+                if target_cluster.status == "ready":
+                    hibernate_cluster(target_cluster)
+                else:
+                    print(
+                        f'Cluster {target_cluster.name} is not in ready state, please wait for it to be ready and try again')
         else:
             hybernate_hypershift_cluster(target_cluster, ec2_map)
         print('starting the smartsheet update')
