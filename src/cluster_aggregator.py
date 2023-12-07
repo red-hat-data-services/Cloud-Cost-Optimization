@@ -2,6 +2,7 @@ import json
 import boto3
 import os
 import smartsheet
+import re
 
 class oc_cluster:
     def __init__(self, cluster_detail, ocm_account):
@@ -9,6 +10,7 @@ class oc_cluster:
         details = [detail for detail in details if detail]
         self.id = details[0]
         self.name = details[1]
+        self.internal_name = details[1]
         self.api_url = details[2]
         self.ocp_version = details[3]
         self.type = details[4]
@@ -22,13 +24,28 @@ class oc_cluster:
         self.creator_name = ''
         self.creator_email = ''
 
+def get_ipi_cluster_name(cluster:oc_cluster):
+    if cluster.name.count('-') == 4:
+        try:
+            url = run_command(f'ocm describe cluster {cluster.id} | grep "Console URL:"')
+            url = url.replace('Console URL:', '').strip()
+            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com$", url)
+            if result:
+                cluster.internal_name = result.group(1)
+        except:
+            print(f'could not retrieve internal name for IPI cluster {cluster.name}, the cluster seems stale or non-existent')
 
 def get_all_cluster_details(ocm_account:str, clusters:list):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail, ocm_account))
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+        cluster = oc_cluster(cluster_detail, ocm_account)
+        if cluster.type == 'ocp':
+            get_ipi_cluster_name(cluster)
+        if cluster.cloud_provider == 'aws' and (
+                cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name)):
+            clusters.append(cluster)
+    # clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     update_cluster_details(clusters)
 
 

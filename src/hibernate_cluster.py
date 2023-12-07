@@ -43,8 +43,10 @@ def get_all_cluster_details(ocm_account:str, clusters:dict):
         cluster = oc_cluster(cluster_detail, ocm_account)
         if cluster.type == 'ocp':
             get_ipi_cluster_name(cluster)
-        clusters.append(cluster)
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and (cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name))]
+        if cluster.cloud_provider == 'aws' and (
+                cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name)):
+            clusters.append(cluster)
+    # clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and (cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name))]
 
 
 def get_instances_for_region(region, current_state):
@@ -260,7 +262,7 @@ def main():
         else:
             hybernate_hypershift_cluster(target_cluster, ec2_map)
         print('starting the smartsheet update')
-        # ca.main()
+        ca.main()
         print('Hibernated the cluster:')
         print(target_cluster.__dict__)
 
