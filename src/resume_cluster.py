@@ -189,7 +189,7 @@ def main():
     clusters = []
 
     get_all_cluster_details(args.ocm_account, clusters)
-
+    print(json.dumps([cluster.__dict__ for cluster in clusters], indent=4))
     available_clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     target_cluster = [cluster for cluster in available_clusters if cluster.name == sanitize_cluster_name(args.cluster_name)]
     if len(target_cluster) > 1:
