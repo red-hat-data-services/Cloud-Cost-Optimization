@@ -37,15 +37,17 @@ def get_ipi_cluster_name(cluster:oc_cluster):
         except:
             print(f'could not retrieve internal name for IPI cluster {cluster.name}, the cluster seems stale or non-existent')
 
-def get_all_cluster_details(ocm_account:str, clusters:dict):
+def get_all_cluster_details(ocm_account:str, clusters:list):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
         cluster = oc_cluster(cluster_detail, ocm_account)
         if cluster.type == 'ocp':
             get_ipi_cluster_name(cluster)
-        clusters.append(cluster)
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and (cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name))]
+        if cluster.cloud_provider == 'aws' and (
+                cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name)):
+            clusters.append(cluster)
+    # clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and (cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name))]
 
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
