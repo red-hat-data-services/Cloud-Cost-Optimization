@@ -182,6 +182,7 @@ def parse_arguments():
 def sanitize_cluster_name(cluster_name:str):
     if cluster_name.count('-') == 4:
         cluster_name = cluster_name[:28]
+    return cluster_name
 
 def main():
     args = parse_arguments()
