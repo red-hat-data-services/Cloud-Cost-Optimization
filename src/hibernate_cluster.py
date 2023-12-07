@@ -14,6 +14,7 @@ class oc_cluster:
         details = [detail for detail in details if detail]
         self.id = details[0]
         self.name = details[1]
+        self.internal_name = details[1]
         self.api_url = details[2]
         self.ocp_version = details[3]
         self.type = details[4]
@@ -24,12 +25,26 @@ class oc_cluster:
         self.nodes = []
         self.hibernate_error = ''
         self.ocm_account = ocm_account
+
+def get_ipi_cluster_name(cluster:oc_cluster):
+    if cluster.name.count('-') == 4:
+        try:
+            url = run_command(f'ocm describe cluster {cluster.id} | grep "Console URL:"')
+            url = url.replace('Console URL:', '').strip()
+            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com$", url)
+            if result:
+                cluster.internal_name = result.group(1)
+        except:
+            print(f'could not retrieve internal name for IPI cluster {cluster.name}, the cluster seems stale or non-existent')
 def get_all_cluster_details(ocm_account:str, clusters:dict):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail, ocm_account))
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+        cluster = oc_cluster(cluster_detail, ocm_account)
+        if cluster.type == 'ocp':
+            get_ipi_cluster_name(cluster)
+        clusters.append(cluster)
+    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and (cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name))]
 
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
@@ -76,11 +91,15 @@ def delete_volume(volume_id, region):
             print(f'Deleted the volume {volume_id}')
         except:
             time.sleep(5)
+
+
+
 def hibernate_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+
     result = False
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
-    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.name)]
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
     if len(InstanceIds) > 0:
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
@@ -150,12 +169,12 @@ def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int)
 def wait_for_ipi_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
     time.sleep(15)
     ec2_map = get_instances_for_region(cluster.region, 'stopped')
-    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.name)]
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.internal_name)]
     while len(InstanceIds) < worker_count:
         print('Worker nodes stopping, please wait...')
         time.sleep(5)
         ec2_map = get_instances_for_region(cluster.region, 'stopped')
-        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.name)]
+        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-') and worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.internal_name)]
 
     status_map = get_instance_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['stopped']):
@@ -200,19 +219,22 @@ def parse_arguments():
 
     return args
 
+def sanitize_cluster_name(cluster_name:str):
+    if cluster_name.count('-') == 4:
+        cluster_name = cluster_name[:28]
+    return cluster_name
 def main():
     args = parse_arguments()
     args.ocm_account = args.ocm_account.split(' ')[0]
 
-    if args.cluster_name.count('-') == 4:
-        args.cluster_name = args.cluster_name[:28]
+
 
     clusters = []
 
     get_all_cluster_details(args.ocm_account, clusters)
 
     available_clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
-    target_cluster = [cluster for cluster in available_clusters if cluster.name == args.cluster_name]
+    target_cluster = [cluster for cluster in available_clusters if cluster.name == sanitize_cluster_name(args.cluster_name)]
     if len(target_cluster) > 1:
         sys.exit("More than one clusters found with give name.")
 
@@ -221,13 +243,6 @@ def main():
 
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
-        if target_cluster.name.count('-') == 4:
-            print('updating ipi cluster name')
-            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com\/$", target_cluster.api_url)
-            if result:
-                print('updated ipi cluster name to be ', result.group(1))
-                target_cluster.name = result.group(1)
-
         ec2_map = get_instances_for_region(target_cluster.region, 'running')
         print('starting to hibernate ', target_cluster.name)
         if target_cluster.hcp == "false":
