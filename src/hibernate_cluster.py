@@ -103,8 +103,8 @@ def hibernate_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
     if len(InstanceIds) > 0:
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
-        # ec2_client.stop_instances(InstanceIds=InstanceIds)
-        # wait_for_ipi_cluster_to_be_hibernated(cluster, worker_count)
+        ec2_client.stop_instances(InstanceIds=InstanceIds)
+        wait_for_ipi_cluster_to_be_hibernated(cluster, worker_count)
         print(f'Started hibernating the cluster {cluster.name}')
         result = True
     else:
