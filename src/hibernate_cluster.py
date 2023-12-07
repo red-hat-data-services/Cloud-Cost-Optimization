@@ -46,6 +46,7 @@ def get_all_cluster_details(ocm_account:str, clusters:dict):
         clusters.append(cluster)
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and (cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name))]
 
+
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
     filters = [{'Name': 'instance-state-name', 'Values': [current_state]}]
@@ -232,6 +233,8 @@ def main():
     clusters = []
 
     get_all_cluster_details(args.ocm_account, clusters)
+
+    print(json.dumps([cluster.__dict__ for cluster in clusters], indent=4))
 
     available_clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     target_cluster = [cluster for cluster in available_clusters if cluster.name == sanitize_cluster_name(args.cluster_name)]
