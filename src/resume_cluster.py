@@ -188,9 +188,6 @@ def main():
     args.ocm_account = args.ocm_account.split(' ')[0]
     clusters = []
 
-    if args.cluster_name.count('-') == 4:
-        args.cluster_name = args.cluster_name[:28]
-
     get_all_cluster_details(args.ocm_account, clusters)
 
     available_clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
