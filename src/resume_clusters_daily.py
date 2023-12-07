@@ -3,6 +3,7 @@ import boto3
 import time, datetime
 import os
 import smartsheet
+import re
 
 
 class oc_cluster:
@@ -69,13 +70,28 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     else:
         print(f'Cluster {cluster.name} is already running.')
 
+def get_ipi_cluster_name(cluster:oc_cluster):
+    if cluster.name.count('-') == 4:
+        try:
+            url = run_command(f'ocm describe cluster {cluster.id} | grep "Console URL:"')
+            url = url.replace('Console URL:', '').strip()
+            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com$", url)
+            if result:
+                cluster.internal_name = result.group(1)
+        except:
+            print(f'could not retrieve internal name for IPI cluster {cluster.name}, the cluster seems stale or non-existent')
 
 def get_all_cluster_details(ocm_account: str, clusters: dict):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail, ocm_account))
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+        cluster = oc_cluster(cluster_detail, ocm_account)
+        if cluster.type == 'ocp':
+            get_ipi_cluster_name(cluster)
+        if cluster.cloud_provider == 'aws' and (
+                cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name)):
+            clusters.append(cluster)
+    # clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
 
 
 def get_cluster_list(ocm_account: str):
@@ -131,6 +147,28 @@ def good_time_to_resume_cluster(inactive_hours_end: str):
 
     return 0 <= diff <= buffer_seconds
 
+def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
+    tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
+    result = 'red-hat-clustertype' not in tags and 'api.openshift.com/name' not in tags
+    for key, value in tags.items():
+        if key.startswith(f'kubernetes.io/cluster/{cluster_name}-') and value == 'owned':
+            result = result and True
+            break
+    return result
+
+def resume_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+    print([name for name in ec2_map])
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
+    if len(InstanceIds) > 0:
+        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        ec2_client.start_instances(InstanceIds=InstanceIds)
+        print(f'Done resuming the cluster {cluster.name}')
+    else:
+        print(f'Cluster {cluster.name} is already running.')
+
 def main():
     ec2_instances = {}
     get_all_instances(ec2_instances, 'stopped')
@@ -158,8 +196,12 @@ def main():
     for cluster in clusters:
         if cluster.inactive_hours_end and good_time_to_resume_cluster(cluster.inactive_hours_end):
             if cluster.hcp == "false":
-                resume_cluster(cluster)
-                print("OSD or ROSA Classic - ", cluster.name)
+                if cluster.type == 'ocp':
+                    resume_ipi_cluster(cluster, ec2_instances[cluster.region])
+                    print("IPI - ", cluster.name)
+                else:
+                    resume_cluster(cluster)
+                    print("OSD or ROSA Classic - ", cluster.name)
             else:
                 resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)

@@ -3,6 +3,7 @@ import boto3
 import time, datetime
 import os
 import smartsheet
+import re
 
 class oc_cluster:
     def __init__(self, cluster_detail, ocm_account):
@@ -65,14 +66,28 @@ def delete_volume(volume_id, region):
         except:
             time.sleep(5)
 
-
+def get_ipi_cluster_name(cluster:oc_cluster):
+    if cluster.name.count('-') == 4:
+        try:
+            url = run_command(f'ocm describe cluster {cluster.id} | grep "Console URL:"')
+            url = url.replace('Console URL:', '').strip()
+            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com$", url)
+            if result:
+                cluster.internal_name = result.group(1)
+        except:
+            print(f'could not retrieve internal name for IPI cluster {cluster.name}, the cluster seems stale or non-existent')
 
 def get_all_cluster_details(ocm_account:str, clusters:dict):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail, ocm_account))
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+        cluster = oc_cluster(cluster_detail, ocm_account)
+        if cluster.type == 'ocp':
+            get_ipi_cluster_name(cluster)
+        if cluster.cloud_provider == 'aws' and (
+                cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name)):
+            clusters.append(cluster)
+    # clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
 
 def get_cluster_list(ocm_account:str):
     run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
@@ -93,20 +108,6 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
-        # wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
-        # # detach and delete the volumes
-        # filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
-        # attached_volumes = ec2_client.describe_volumes(Filters=filters)
-        # attached_volumes = [attachment for volume in attached_volumes['Volumes'] for attachment in volume['Attachments']
-        #                     if attachment['DeleteOnTermination'] == True and not check_if_given_tag_exists(
-        #         'KubernetesCluster', volume['Tags'])]
-        # print('attached_volumes', attached_volumes)
-        # for volume in attached_volumes:
-        #     print(f'detaching the volume {volume["VolumeId"]}')
-        #     ec2_client.detach_volume(Device=volume['Device'], InstanceId=volume['InstanceId'], VolumeId=volume['VolumeId'])
-        # for volume in attached_volumes:
-        #     print(f'deleting the volume {volume["VolumeId"]}')
-        #     delete_volume(volume['VolumeId'], cluster.region)
 
         print(f'Started hibernating the cluster {cluster.name}')
     else:
@@ -167,6 +168,30 @@ def good_time_to_hibernate_cluster(inactive_hours_start:str):
 
     return 0 <= diff <= buffer_seconds
 
+def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
+    tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
+    result = 'red-hat-clustertype' not in tags and 'api.openshift.com/name' not in tags
+    for key, value in tags.items():
+        if key.startswith(f'kubernetes.io/cluster/{cluster_name}-') and value == 'owned':
+            result = result and True
+            break
+    return result
+def hibernate_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+
+    result = False
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
+    if len(InstanceIds) > 0:
+        print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
+        worker_count = len(InstanceIds)
+        ec2_client.stop_instances(InstanceIds=InstanceIds)
+        print(f'Started hibernating the cluster {cluster.name}')
+        result = True
+    else:
+        print(f'Cluster {cluster.name} is already hibernated.')
+    return result
+
 def resume_cluster(cluster: oc_cluster):
     run_command(f'script/./resume_cluster.sh {cluster.ocm_account} {cluster.id}')
 def main():
@@ -197,8 +222,12 @@ def main():
 
         if cluster.inactive_hours_start and good_time_to_hibernate_cluster(cluster.inactive_hours_start):
             if cluster.hcp == "false":
-                hibernate_cluster(cluster)
-                print("OSD or ROSA Classic - ", cluster.name)
+                if cluster.type == 'ocp':
+                    hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
+                    print("IPI - ", cluster.name)
+                else:
+                    hibernate_cluster(cluster)
+                    print("OSD or ROSA Classic - ", cluster.name)
             else:
                 hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
