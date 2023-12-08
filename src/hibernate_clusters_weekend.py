@@ -11,6 +11,7 @@ class oc_cluster:
         details = [detail for detail in details if detail]
         self.id = details[0]
         self.name = details[1]
+        self.internal_name = details[1]
         self.api_url = details[2]
         self.ocp_version = details[3]
         self.type = details[4]
@@ -25,8 +26,24 @@ def get_all_cluster_details(ocm_account:str, clusters:dict):
     get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail, ocm_account))
-    clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+        cluster = oc_cluster(cluster_detail, ocm_account)
+        if cluster.type == 'ocp':
+            get_ipi_cluster_name(cluster)
+        if cluster.cloud_provider == 'aws' and (
+                cluster.type != 'ocp' or (cluster.type == 'ocp' and cluster.name != cluster.internal_name)):
+            clusters.append(cluster)
+    # clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
+
+def get_ipi_cluster_name(cluster:oc_cluster):
+    if cluster.name.count('-') == 4:
+        try:
+            url = run_command(f'ocm describe cluster {cluster.id} | grep "Console URL:"')
+            url = url.replace('Console URL:', '').strip()
+            result = re.search(r"^https:\/\/console-openshift-console.apps.(.*).ocp2.odhdev.com$", url)
+            if result:
+                cluster.internal_name = result.group(1)
+        except:
+            print(f'could not retrieve internal name for IPI cluster {cluster.name}, the cluster seems stale or non-existent')
 
 def get_instances_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
@@ -101,20 +118,21 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     return result
 
 def hibernate_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
+
     result = False
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
-    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.name)]
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
     if len(InstanceIds) > 0:
         print(f'Stopping Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
         ec2_client.stop_instances(InstanceIds=InstanceIds)
-
         print(f'Started hibernating the cluster {cluster.name}')
         result = True
     else:
         print(f'Cluster {cluster.name} is already hibernated.')
     return result
+
 
 def get_instance_status(cluster:oc_cluster, InstanceIds:list):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
