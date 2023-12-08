@@ -11,6 +11,7 @@ class oc_cluster:
         details = [detail for detail in details if detail]
         self.id = details[0]
         self.name = details[1]
+        self.internal_name = details[1]
         self.api_url = details[2]
         self.ocp_version = details[3]
         self.type = details[4]
