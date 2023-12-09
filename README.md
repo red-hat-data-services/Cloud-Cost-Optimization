@@ -37,9 +37,9 @@ This document describes various ideas, opportunities and best practices to optim
 
 2. **Hibernation Infrastructure** design and development
 
-   1. [**Hypershift Hibernation**](https://docs.google.com/document/d/1LCAfVPY_OEupehuP6exTL01YxnLAvJ7ptCtwQRx9QWU/edit#heading=h.axq5a0z70t0c) ****infrastructure - to hibernate and resume the HCP clusters
+   1. [**Hypershift Hibernation**](https://docs.google.com/document/d/1LCAfVPY_OEupehuP6exTL01YxnLAvJ7ptCtwQRx9QWU/edit#heading=h.axq5a0z70t0c) infrastructure - to hibernate and resume the HCP clusters
 
-   2. [**IPI Hibernation**](https://docs.google.com/document/d/1LCAfVPY_OEupehuP6exTL01YxnLAvJ7ptCtwQRx9QWU/edit#heading=h.jc4a1jim91th) ****infrastructure - to hibernate and resume the IPI clusters
+   2. [**IPI Hibernation**](https://docs.google.com/document/d/1LCAfVPY_OEupehuP6exTL01YxnLAvJ7ptCtwQRx9QWU/edit#heading=h.jc4a1jim91th) infrastructure - to hibernate and resume the IPI clusters
 
    3. [**Automated Weekend Hibernation**](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/actions/workflows/hibernate_clusters_weeend.yaml) infrastructure - to automatically hibernate all the clusters each weekend and resume when the week starts
 
