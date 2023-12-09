@@ -38,7 +38,7 @@ This document describes the possible design and implementation of a method to hi
 
 - This design is implemented here:
 
-  - [Hibernate Cluster Workflow](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/blob/main/.github/workflows/hibernate_cluster.yaml)
+  - [Hibernate Cluster Workflow](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/actions/workflows/hibernate_cluster.yaml)
 
   - [Backend Implementation](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/blob/main/src/hibernate_cluster.py)
 
@@ -55,6 +55,6 @@ This document describes the possible design and implementation of a method to hi
 
 - This design is implemented here:
 
-  - [Resume Cluster Workflow](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/blob/main/.github/workflows/resume_cluster.yaml)
+  - [Resume Cluster Workflow](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/actions/workflows/resume_cluster.yaml)
 
   - [Backend Implementation](https://github.com/red-hat-data-services/Cloud-Cost-Optimization/blob/main/src/resume_cluster.py)
