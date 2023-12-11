@@ -26,7 +26,7 @@ def get_all_cluster_details(ocm_account:str, clusters:list):
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
 
 def get_cluster_list(ocm_account:str):
-    run_command(f'../script/./get_all_cluster_details.sh {ocm_account}')
+    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
 
 def run_command(command):
     output = os.popen(command).read()
