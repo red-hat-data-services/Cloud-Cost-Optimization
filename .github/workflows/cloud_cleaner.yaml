@@ -8,8 +8,8 @@ on:
 #        description: 'Dry-Run'
 #        required: true
 #        default: True
-#  schedule:
-#    - cron: '10 */2 * * *'
+  schedule:
+    - cron: '0 */1 * * *'
 
 jobs:
   cloud-cleaner:
