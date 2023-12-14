@@ -3,7 +3,7 @@ import time
 import requests
 import boto3
 import os
-
+import traceback
 
 class oc_cluster:
     def __init__(self, cluster_detail, ocm_account):
@@ -103,13 +103,14 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
         for volume in attached_volumes:
             print(f'deleting the volume {volume["VolumeId"]}')
             delete_volume(volume['VolumeId'], cluster.region)
-    if len(InstanceIds_running) == 0 and len(InstanceIds_running) == 0:
+    if len(InstanceIds_running) == 0 and len(InstanceIds_stopped) == 0:
         try:
             sync_hcp_node_pools(cluster)
-        except:
+        except Exception as e:
+            print(traceback.format_exc())
             print('error while syncing the machine pools for HCP cluster', cluster.name)
 
-    if len(InstanceIds_running) > 0 and len(InstanceIds_stopped) > 0:
+    if len(InstanceIds_running) > 0 and len(InstanceIds_running) > 0:
         filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
         current_stopped_instances = ec2_client.describe_instances(InstanceIds=InstanceIds_stopped, Filters=filters)
         current_stopped_instances = [ec2 for ec2 in current_stopped_instances['Reservations']]
