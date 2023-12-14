@@ -103,7 +103,7 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
         for volume in attached_volumes:
             print(f'deleting the volume {volume["VolumeId"]}')
             delete_volume(volume['VolumeId'], cluster.region)
-    if len(InstanceIds_running) == 0 and len(InstanceIds_stopped) == 0:
+    if len(InstanceIds_running) == 0 and len(InstanceIds_stopped) == 0 and cluster.name == 'pushpa':
         try:
             sync_hcp_node_pools(cluster)
         except Exception as e:
@@ -123,7 +123,7 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
 def get_ocm_api_token():
     if not os.path.isfile('ocm_token.txt'):
         run_command(f'script/./get_ocm_token.sh')
-    ocm_api_token = open('ocm_token.txt').read()
+    ocm_api_token = str(open('ocm_token.txt').read())
     print('len(ocm_api_token)', len(ocm_api_token))
     return ocm_api_token
 def sync_hcp_node_pools(cluster:oc_cluster):
