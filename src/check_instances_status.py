@@ -124,6 +124,7 @@ def get_ocm_api_token():
     if not os.path.isfile('ocm_token.txt'):
         run_command(f'script/./get_ocm_token.sh')
     ocm_api_token = open('ocm_token.txt').read()
+    print('len(ocm_api_token)', len(ocm_api_token))
     return ocm_api_token
 def sync_hcp_node_pools(cluster:oc_cluster):
     api_server_base_url =  'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
