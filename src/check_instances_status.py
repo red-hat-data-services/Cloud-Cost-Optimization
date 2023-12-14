@@ -1,6 +1,6 @@
 import json
 import time
-
+import requests
 import boto3
 import os
 
@@ -103,6 +103,11 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
         for volume in attached_volumes:
             print(f'deleting the volume {volume["VolumeId"]}')
             delete_volume(volume['VolumeId'], cluster.region)
+    if len(InstanceIds_running) == 0 and len(InstanceIds_running) == 0:
+        try:
+            sync_hcp_node_pools(cluster)
+        except:
+            print('error while syncing the machine pools for HCP cluster', cluster.name)
 
     if len(InstanceIds_running) > 0 and len(InstanceIds_stopped) > 0:
         filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
@@ -114,6 +119,24 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
             print(f'Stopping Running Worker Instances of cluster {cluster.name}', InstanceIds_running)
             ec2_client.stop_instances(InstanceIds=InstanceIds_running)
             print(f'Started hibernating the cluster {cluster.name}')
+def get_ocm_api_token():
+    if not os.path.isfile('ocm_token.txt'):
+        run_command(f'script/./get_ocm_token.sh')
+    ocm_api_token = open('ocm_token.txt').read()
+    return ocm_api_token
+def sync_hcp_node_pools(cluster:oc_cluster):
+    api_server_base_url =  'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
+    ocm_api_token = get_ocm_api_token()
+    node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools', headers={'Authorization': f'Bearer {ocm_api_token}'})
+    node_pools = node_pools_response.json()
+    node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
+    for id, replicas in node_pools.items():
+        payload = {'id': id,'labels':{},'taints':[],'replicas': replicas+1 if replicas <= 2 else replicas-1}
+        response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
+                       data=json.dumps(payload),
+                     headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
+        print(response.status_code)
+
 
 
 
