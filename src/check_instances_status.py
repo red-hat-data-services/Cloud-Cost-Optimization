@@ -110,16 +110,16 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
             print(traceback.format_exc())
             print('error while syncing the machine pools for HCP cluster', cluster.name)
 
-    if len(InstanceIds_running) > 0 and len(InstanceIds_running) > 0:
-        filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
-        current_stopped_instances = ec2_client.describe_instances(InstanceIds=InstanceIds_stopped, Filters=filters)
-        current_stopped_instances = [ec2 for ec2 in current_stopped_instances['Reservations']]
-        current_stopped_instances = [instance['InstanceId'] for ec2 in current_stopped_instances for instance in
-                                     ec2['Instances']]
-        if current_stopped_instances:
-            print(f'Stopping Running Worker Instances of cluster {cluster.name}', InstanceIds_running)
-            ec2_client.stop_instances(InstanceIds=InstanceIds_running)
-            print(f'Started hibernating the cluster {cluster.name}')
+    # if len(InstanceIds_running) > 0 and len(InstanceIds_running) > 0:
+    #     filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
+    #     current_stopped_instances = ec2_client.describe_instances(InstanceIds=InstanceIds_stopped, Filters=filters)
+    #     current_stopped_instances = [ec2 for ec2 in current_stopped_instances['Reservations']]
+    #     current_stopped_instances = [instance['InstanceId'] for ec2 in current_stopped_instances for instance in
+    #                                  ec2['Instances']]
+    #     if current_stopped_instances:
+    #         print(f'Stopping Running Worker Instances of cluster {cluster.name}', InstanceIds_running)
+    #         ec2_client.stop_instances(InstanceIds=InstanceIds_running)
+    #         print(f'Started hibernating the cluster {cluster.name}')
 def get_ocm_api_token():
     if not os.path.isfile('ocm_token.txt'):
         run_command(f'script/./get_ocm_token.sh')
