@@ -211,13 +211,13 @@ def main():
         if cluster.id in smartsheet_data and not smartsheet_data[cluster.id][0] and smartsheet_data[cluster.id][1] == 'ready':
             if cluster.hcp == "false":
                 if cluster.type == 'ocp':
-                    # hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
+                    hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
                     print("IPI - ", cluster.name)
                 else:
-                    # hibernate_cluster(cluster)
+                    hibernate_cluster(cluster)
                     print("OSD or ROSA Classic - ", cluster.name)
             else:
-                # hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
+                hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
 
