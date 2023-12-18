@@ -143,11 +143,11 @@ def get_clusters_from_smartsheet():
     smart = smartsheet.Smartsheet()
     # response = smart.Sheets.list_sheets()
     sheed_id = 7086931905040260
-    inactive_hours_start_index, inactive_hours_end_index = 5, 6
+    inactive_hours_start_index, current_status_indedx = 5, 2
     sheet = smart.Sheets.get_sheet(sheed_id)
 
     # get existing data
-    smartsheet_data = {row.cells[0].value: [row.cells[inactive_hours_start_index].value, row.cells[inactive_hours_start_index].value] for row in sheet.rows}
+    smartsheet_data = {row.cells[0].value: [row.cells[inactive_hours_start_index].value, row.cells[current_status_indedx].value] for row in sheet.rows}
     return smartsheet_data
 
 def hibernate_cluster(cluster: oc_cluster):
@@ -208,7 +208,7 @@ def main():
     smartsheet_data = get_clusters_from_smartsheet()
     hibernated_clusters = []
     for cluster in clusters:
-        if cluster.id in smartsheet_data and not smartsheet_data[cluster.id][0]:
+        if cluster.id in smartsheet_data and not smartsheet_data[cluster.id][0] and smartsheet_data[cluster.id][1] == 'ready':
             if cluster.hcp == "false":
                 if cluster.type == 'ocp':
                     # hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
