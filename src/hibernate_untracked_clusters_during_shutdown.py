@@ -214,8 +214,8 @@ def main():
                     # hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
                     print("IPI - ", cluster.name)
                 else:
-                    hibernate_cluster(cluster)
-                    # print("OSD or ROSA Classic - ", cluster.name)
+                    # hibernate_cluster(cluster)
+                    print("OSD or ROSA Classic - ", cluster.name)
             else:
                 # hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hypershift cluster - ", cluster.name)
