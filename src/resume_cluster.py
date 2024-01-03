@@ -5,7 +5,7 @@ import boto3
 import os
 import argparse
 import cluster_aggregator as ca
-import smartsheet
+import smartsheet, requests
 import re
 
 class oc_cluster:
@@ -77,14 +77,19 @@ def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
             result = True
             break
     return result
-def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
+def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict, ec2_running_map:dict):
     # ec2_map = ec2_instances[cluster.region]
 
     print([name for name in ec2_map])
     worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
-    if len(InstanceIds) > 0:
+    InstanceIds_Running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
+
+    if len(InstanceIds) == 0 and len(InstanceIds_Running) ==0:
+        worker_count = sync_hcp_node_pools(cluster)
+        wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
+    elif len(InstanceIds) > 0:
         print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
         ec2_client.terminate_instances(InstanceIds=InstanceIds)
@@ -92,6 +97,36 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
         print(f'Done resuming the cluster {cluster.name}')
     else:
         print(f'Cluster {cluster.name} is already running.')
+
+
+def get_ocm_api_token():
+    if not os.path.isfile('ocm_token.txt'):
+        run_command(f'script/./get_ocm_token.sh')
+    ocm_api_token = str(open('ocm_token.txt').read())
+    print('len(ocm_api_token)', len(ocm_api_token))
+    return ocm_api_token
+def sync_hcp_node_pools(cluster:oc_cluster):
+    api_server_base_url =  'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
+    ocm_api_token = get_ocm_api_token()
+    node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools', headers={'Authorization': f'Bearer {ocm_api_token}'})
+    node_pools = node_pools_response.json()
+    node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
+    totalNodes = 0
+    for id, replicas in node_pools.items():
+        newReplicas = replicas+1 if replicas <= 2 else replicas-1
+        payload = {'id': id,'labels':{},'taints':[],'replicas': newReplicas}
+        response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
+                       data=json.dumps(payload),
+                     headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
+
+        print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}')
+        print(response.status_code)
+        if response.status_code == 200:
+            totalNodes += newReplicas
+            print(f'now total nodes are {totalNodes}')
+
+    time.sleep(30)
+    return totalNodes
 
 def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
     time.sleep(15)
@@ -204,6 +239,7 @@ def main():
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
         ec2_map = get_instances_for_region(target_cluster.region, 'stopped')
+        ec2_running_map = get_instances_for_region(target_cluster.region, 'running')
         print('starting to resume ', target_cluster.name)
         if target_cluster.hcp == "false":
             if target_cluster.type == 'ocp':
@@ -214,7 +250,7 @@ def main():
                 else:
                     print(f'Cluster {target_cluster.name} is not in hibernating state')
         else:
-            resume_hypershift_cluster(target_cluster, ec2_map)
+            resume_hypershift_cluster(target_cluster, ec2_map, ec2_running_map)
         print('starting the smartsheet update')
         ca.main()
         print('Resumed the cluster:')
