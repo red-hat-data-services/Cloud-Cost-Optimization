@@ -108,7 +108,7 @@ def get_ocm_api_token():
 def sync_hcp_node_pools(cluster:oc_cluster):
     api_server_base_url =  'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
     ocm_api_token = get_ocm_api_token()
-    node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools', headers={'Authorization': f'Bearer {ocm_api_token}'})
+    node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools', headers={'Authorization': 'Bearer ' + ocm_api_token})
     node_pools = node_pools_response.json()
     node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
     totalNodes = 0
@@ -117,7 +117,7 @@ def sync_hcp_node_pools(cluster:oc_cluster):
         payload = {'id': id,'labels':{},'taints':[],'replicas': newReplicas}
         response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
                        data=json.dumps(payload),
-                     headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
+                     headers={'Authorization': 'Bearer ' + ocm_api_token, 'Content-Type': 'application/json'})
 
         print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}')
         print(response.status_code)
