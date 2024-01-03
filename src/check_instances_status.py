@@ -103,12 +103,13 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
         for volume in attached_volumes:
             print(f'deleting the volume {volume["VolumeId"]}')
             delete_volume(volume['VolumeId'], cluster.region)
-    # if len(InstanceIds_running) == 0 and len(InstanceIds_stopped) == 0:
-    #     try:
-    #         sync_hcp_node_pools(cluster)
-    #     except Exception as e:
-    #         print(traceback.format_exc())
-    #         print('error while syncing the machine pools for HCP cluster', cluster.name)
+    if len(InstanceIds_running) == 0 and len(InstanceIds_stopped) == 0 and cluster.name == 'dpg1ai':
+        try:
+            print(f'starting node pool sync for {cluster.name}')
+            sync_hcp_node_pools(cluster)
+        except Exception as e:
+            print(traceback.format_exc())
+            print('error while syncing the machine pools for HCP cluster', cluster.name)
 
     # if len(InstanceIds_running) > 0 and len(InstanceIds_running) > 0:
     #     filters = [{'Name': 'instance-state-name', 'Values': ['stopped']}]
@@ -132,12 +133,20 @@ def sync_hcp_node_pools(cluster:oc_cluster):
     node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools', headers={'Authorization': f'Bearer {ocm_api_token}'})
     node_pools = node_pools_response.json()
     node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
+    totalNodes = 0
     for id, replicas in node_pools.items():
-        payload = {'id': id,'labels':{},'taints':[],'replicas': replicas+1 if replicas <= 2 else replicas-1}
+        newReplicas = replicas+1 if replicas <= 2 else replicas-1
+        payload = {'id': id,'labels':{},'taints':[],'replicas': newReplicas}
         response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
                        data=json.dumps(payload),
                      headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
+
+        print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}')
         print(response.status_code)
+        if response.status_code == 200:
+            totalNodes += newReplicas
+            print(f'now total nodes are {totalNodes}')
+    return totalNodes
 
 
 
