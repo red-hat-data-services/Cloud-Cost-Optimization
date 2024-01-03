@@ -106,7 +106,7 @@ def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_
     if len(InstanceIds_running) == 0 and len(InstanceIds_stopped) == 0:
         try:
             print(f'starting node pool sync for {cluster.name}')
-            # sync_hcp_node_pools(cluster)
+            sync_hcp_node_pools(cluster)
         except Exception as e:
             print(traceback.format_exc())
             print('error while syncing the machine pools for HCP cluster', cluster.name)
