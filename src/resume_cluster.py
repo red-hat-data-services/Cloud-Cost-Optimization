@@ -86,11 +86,10 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict, ec2_running_map:
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
     InstanceIds_Running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
 
-    # if len(InstanceIds) == 0 and len(InstanceIds_Running) ==0:
-    #     worker_count = sync_hcp_node_pools(cluster)
-    #     wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
-    # el
-    if len(InstanceIds) > 0:
+    if len(InstanceIds) == 0 and len(InstanceIds_Running) ==0:
+        worker_count = sync_hcp_node_pools(cluster)
+        wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
+    elif len(InstanceIds) > 0:
         print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds)
         worker_count = len(InstanceIds)
         ec2_client.terminate_instances(InstanceIds=InstanceIds)
