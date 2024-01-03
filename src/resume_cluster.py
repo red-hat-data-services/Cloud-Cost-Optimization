@@ -82,9 +82,10 @@ def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict, ec2_running_map:
 
     print([name for name in ec2_map])
     worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    worker_nodes_running = [ec2_name for ec2_name in ec2_running_map if ec2_name.startswith(f'{cluster.name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
-    InstanceIds_Running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
+    InstanceIds_Running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in worker_nodes_running if worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
 
     if len(InstanceIds) == 0 and len(InstanceIds_Running) ==0:
         worker_count = sync_hcp_node_pools(cluster)
