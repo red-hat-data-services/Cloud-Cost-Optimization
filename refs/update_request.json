@@ -3,7 +3,7 @@
   ],
   "columnIds": [
   ],
-  "includeAttachments": true,
+  "includeAttachments": false,
   "includeDiscussions": false,
   "ccMe": true,
   "message": "Please update the inactive hours for your cluster - __CLUSTER__NAME__",
