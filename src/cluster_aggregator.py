@@ -180,6 +180,14 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         print(response)
         payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
+        print(response)
+        if response.__class__ != smartsheet.Smartsheet.models.Error:
+            new_row_ids = [row['id'] for row in response]
+            sheet = smart.Sheets.get_sheet(sheed_id)
+            newRows = [row for row in sheet.rows if row.id in new_row_ids]
+            for row in newRows:
+                send_request_to_update_inactive_hours(row, column_map, smart)
+
 
     if smartsheet_deleted_data:
         print('Deleting old clusters', smartsheet_deleted_data)
@@ -187,6 +195,19 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         print(delete_url)
         response = smart.Passthrough.delete(delete_url)
         print(response)
+
+def send_request_to_update_inactive_hours(row:smartsheet.smartsheet.models.row, column_map:dict, smart:smartsheet.smartsheet.Smartsheet):
+    sheed_id = 7086931905040260
+    payload  = open('refs/update_request.json').read().replace('__CLUSTER__NAME__', row.cells[1].value)
+    payload = json.loads(payload)
+    payload['rowIds']= [row.id]
+    payload['columnIds'] = [value for key, value in column_map.items()]
+    payload['sendTo'] = [{'email': row.cells[7].value}]
+    # , {'email': 'ikhalidi@redhat.com'}
+    response = smart.Passthrough.post(f'/sheets/{sheed_id}/updaterequests', payload)
+    print(response)
+
+
 
 
 def get_instances_for_region(region, current_state):
