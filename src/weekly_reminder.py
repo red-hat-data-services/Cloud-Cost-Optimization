@@ -93,6 +93,7 @@ def send_weekly_reminder(clusters:dict[oc_cluster]):
 
     for row in existingRows:
         if row.cells[0].value in existingClusterIds and (not row.cells[5].value or ':' not in row.cells[5].value) and row.cells[1].value == 'dchouras':
+            print(f'sending weekly reminder for cluster - {row.cells[1].value}')
             send_request_to_update_inactive_hours(row, column_map, smart)
 
 
