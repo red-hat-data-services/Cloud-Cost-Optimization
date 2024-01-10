@@ -2,7 +2,7 @@ name: Send Weekly Reminder
 run-name: Send Weekly Reminder
 on:
   schedule:
-    - cron: '0 9 * * 3'
+    - cron: '0 11 * * 3'
   workflow_dispatch:
 
 jobs:
