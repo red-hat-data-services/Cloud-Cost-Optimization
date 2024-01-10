@@ -1,0 +1,13 @@
+{
+  "rowIds": [
+  ],
+  "columnIds": [
+  ],
+  "includeAttachments": true,
+  "includeDiscussions": false,
+  "ccMe": true,
+  "message": "Please update the inactive hours for your cluster - __CLUSTER__NAME__",
+  "sendTo": [
+  ],
+  "subject": "__CLUSTER__NAME__ - Update Inactive Hours"
+}
