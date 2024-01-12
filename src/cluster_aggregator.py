@@ -182,8 +182,6 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         print(response)
         payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
         response_sort = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
-        print('smartsheet_new_data', response)
-        print('smartsheet_new_data-data', response.data)
 
         if response.__class__ != smartsheet.Smartsheet.models.Error:
             time.sleep(5)
@@ -193,8 +191,8 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
             newRows = [row for row in sheet.rows if row.id in new_row_ids]
             for row in newRows:
                 print(f'found a new cluster -  {row.cells[1].value}')
-                if (not row.cells[5].value or ':' not in row.cells[5].value) and row.cells[1].value == 'dchouras':
-                    print(f'sending weekly reminder for cluster - {row.cells[1].value}')
+                if (not row.cells[5].value or ':' not in row.cells[5].value):
+                    print(f'sending reminder to add inactive hours for cluster - {row.cells[1].value}')
                     send_request_to_update_inactive_hours(row, column_map, smart)
 
 
