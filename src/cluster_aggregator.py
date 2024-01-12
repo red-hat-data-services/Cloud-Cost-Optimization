@@ -186,7 +186,7 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
 
         if response.__class__ != smartsheet.Smartsheet.models.Error:
             time.sleep(5)
-            new_row_ids = [row['id'] for row in response['result']]
+            new_row_ids = [row['id'] for row in response.data['result']]
             print('new_row_ids', new_row_ids)
             sheet = smart.Sheets.get_sheet(sheed_id)
             newRows = [row for row in sheet.rows if row.id in new_row_ids]
