@@ -187,10 +187,13 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         if response.__class__ != smartsheet.Smartsheet.models.Error:
             time.sleep(5)
             new_row_ids = [row['id'] for row in response]
+            print('new_row_ids', new_row_ids)
             sheet = smart.Sheets.get_sheet(sheed_id)
             newRows = [row for row in sheet.rows if row.id in new_row_ids]
             for row in newRows:
+                print(f'found a new cluster -  {row.cells[1].value}')
                 if (not row.cells[5].value or ':' not in row.cells[5].value) and row.cells[1].value == 'dchouras':
+                    print(f'sending weekly reminder for cluster - {row.cells[1].value}')
                     send_request_to_update_inactive_hours(row, column_map, smart)
 
 
