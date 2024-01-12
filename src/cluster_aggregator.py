@@ -181,7 +181,7 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/rows', payload)
         print(response)
         payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
-        response = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
+        response_sort = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
         print('smartsheet_new_data', response)
         print('smartsheet_new_data-data', response.data)
 
