@@ -1,4 +1,6 @@
 import json
+import time
+
 import boto3
 import os
 import smartsheet
@@ -181,7 +183,9 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
         print(response)
+
         if response.__class__ != smartsheet.Smartsheet.models.Error:
+            time.sleep(5)
             new_row_ids = [row['id'] for row in response]
             sheet = smart.Sheets.get_sheet(sheed_id)
             newRows = [row for row in sheet.rows if row.id in new_row_ids]
