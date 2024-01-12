@@ -190,7 +190,6 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
             sheet = smart.Sheets.get_sheet(sheed_id)
             newRows = [row for row in sheet.rows if row.id in new_row_ids]
             for row in newRows:
-                print(f'found a new cluster -  {row.cells[1].value}')
                 if (not row.cells[5].value or ':' not in row.cells[5].value):
                     print(f'sending reminder to add inactive hours for cluster - {row.cells[1].value}')
                     send_request_to_update_inactive_hours(row, column_map, smart)
