@@ -102,7 +102,7 @@ def send_request_to_update_inactive_hours(row:smartsheet.smartsheet.models.row, 
     payload = json.loads(payload)
     payload['rowIds']= [row.id]
     payload['columnIds'] = [value for key, value in column_map.items()]
-    payload['sendTo'] = [{'email': row.cells[7].value}]
+    payload['sendTo'] = [{'email': row.cells[7].value}, {'email': 'ldimaggi@redhat.com'}, {'email': 'mhorinek@redhat.com'}]
     # , {'email': 'ikhalidi@redhat.com'}
     response = smart.Passthrough.post(f'/sheets/{sheed_id}/updaterequests', payload)
     print(response)
