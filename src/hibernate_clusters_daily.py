@@ -158,14 +158,19 @@ def good_time_to_hibernate_cluster(inactive_hours_start:str):
     buffer_seconds = buffer_hours * 60 * 60
     day_start_time = '00:00:00'
     day_end_time = '23:59:59'
-    inactive_hours_start = datetime.datetime.strptime(inactive_hours_start, '%H:%M:%S')
-    current_utc_time = datetime.datetime.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-                                         '%H:%M:%S')
+    try:
+        inactive_hours_start = datetime.datetime.strptime(inactive_hours_start, '%H:%M:%S')
+    # if the inactive hours start is misconfigured, default to hibernating cluster immediately
+    except ValueError:
+        return False
+
+    current_utc_time = datetime.datetime.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),                                                      '%H:%M:%S')
     day_start_time = datetime.datetime.strptime(day_start_time, '%H:%M:%S')
     day_end_time = datetime.datetime.strptime(day_end_time, '%H:%M:%S')
     diff = (current_utc_time - inactive_hours_start).total_seconds()
-    if diff < 0 and 24 - buffer_hours < inactive_hours_start.hour <= 24 and  0 <= current_utc_time.hour <= buffer_hours:
-        diff = (day_end_time - inactive_hours_start).total_seconds() + (current_utc_time - day_start_time).total_seconds()
+    if diff < 0 and 24 - buffer_hours < inactive_hours_start.hour <= 24 and 0 <= current_utc_time.hour <= buffer_hours:
+        diff = (day_end_time - inactive_hours_start).total_seconds() + (
+                current_utc_time - day_start_time).total_seconds()
 
     return 0 <= diff <= buffer_seconds
 
