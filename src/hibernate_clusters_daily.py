@@ -162,7 +162,7 @@ def good_time_to_hibernate_cluster(inactive_hours_start:str):
         inactive_hours_start = datetime.datetime.strptime(inactive_hours_start, '%H:%M:%S')
     # if the inactive hours start is misconfigured, default to hibernating cluster immediately
     except ValueError:
-        return true
+        return False
 
     current_utc_time = datetime.datetime.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),                                                      '%H:%M:%S')
     day_start_time = datetime.datetime.strptime(day_start_time, '%H:%M:%S')
