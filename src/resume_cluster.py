@@ -7,6 +7,7 @@ import argparse
 import cluster_aggregator as ca
 import smartsheet, requests
 import re
+import traceback
 
 class oc_cluster:
     def __init__(self, cluster_detail, ocm_account):
@@ -125,6 +126,22 @@ def sync_hcp_node_pools(cluster:oc_cluster):
         if response.status_code == 200:
             totalNodes += newReplicas
             print(f'now total nodes are {totalNodes}')
+
+        try:
+            if cluster.name == 'trustyai-rob':
+                payload = {'id': id,'labels':{},'taints':[],'replicas': replicas}
+                response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
+                               data=json.dumps(payload),
+                             headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
+
+                print(f'reset the machine pool {id} with the original replica count {replicas} for cluster {cluster.name}')
+                print(response.status_code)
+                if response.status_code == 200:
+                    totalNodes += replicas - newReplicas
+                    print(f'now total nodes are back to {totalNodes}')
+        except:
+            print(traceback.format_exc())
+
 
     time.sleep(30)
     return totalNodes
