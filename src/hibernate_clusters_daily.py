@@ -147,32 +147,57 @@ def get_clusters_from_smartsheet():
     sheet = smart.Sheets.get_sheet(sheed_id)
 
     # get existing data
-    smartsheet_data = {row.cells[0].value: [row.cells[inactive_hours_start_index].value, row.cells[inactive_hours_start_index].value] for row in sheet.rows}
+    smartsheet_data = {
+            row.cells[0].value: [
+                row.cells[inactive_hours_start_index].value, row.cells[inactive_hours_end_index].value
+                ] for row in sheet.rows
+            }
     return smartsheet_data
 
 def hibernate_cluster(cluster: oc_cluster):
     run_command(f'script/./hybernate_cluster.sh {cluster.ocm_account} {cluster.id}')
 
-def good_time_to_hibernate_cluster(inactive_hours_start:str):
-    buffer_hours = 2
-    buffer_seconds = buffer_hours * 60 * 60
-    day_start_time = '00:00:00'
-    day_end_time = '23:59:59'
-    try:
-        inactive_hours_start = datetime.datetime.strptime(inactive_hours_start, '%H:%M:%S')
-    # if the inactive hours start is misconfigured, default to hibernating cluster immediately
-    except ValueError:
+def good_time_to_hibernate_cluster(cluster):
+    
+    inactive_hours_start = cluster.inactive_hours_start
+    inactive_hours_end = cluster.inactive_hours_end
+
+    # if inactive hours start is not set, do not hibernate cluster
+    if not inactive_hours_start:
         return False
 
-    current_utc_time = datetime.datetime.strptime(datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),                                                      '%H:%M:%S')
-    day_start_time = datetime.datetime.strptime(day_start_time, '%H:%M:%S')
-    day_end_time = datetime.datetime.strptime(day_end_time, '%H:%M:%S')
-    diff = (current_utc_time - inactive_hours_start).total_seconds()
-    if diff < 0 and 24 - buffer_hours < inactive_hours_start.hour <= 24 and 0 <= current_utc_time.hour <= buffer_hours:
-        diff = (day_end_time - inactive_hours_start).total_seconds() + (
-                current_utc_time - day_start_time).total_seconds()
+    # checking to see if smartsheet time entries are missing the seconds part
+    if inactive_hours_start.count(':') == 1:
+        inactive_hours_start += ':00'
+    
+    if inactive_hours_end.count(':') == 1:
+        inactive_hours_end += ':00'
 
-    return 0 <= diff <= buffer_seconds
+    # converting to time objects
+    try:
+        inactive_hours_start = datetime.datetime.strptime(inactive_hours_start, '%H:%M:%S')
+    
+    # if the inactive hours start is misconfigured, default to hibernating cluster immediately
+    except ValueError:
+        print(f'error parsing inactive hours start on cluster {cluster.name}, defaulting to hibernate')
+        print(f'inactive hours start: {cluster.inactive_hours_start}') 
+        return False
+
+    # if inactive hours end is misconfigured or blank, default to one day after start, which will cause it to be ignored
+    try:
+        inactive_hours_end = datetime.datetime.strptime(inactive_hours_end, '%H:%M:%S')
+    except ValueError:
+        inactive_hours_end = inactive_hours_start + datetime.timedelta(days=1)
+
+    # start, end, and current are all relative to epoch
+
+    current_utc_time = datetime.datetime.strptime(
+            datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),'%H:%M:%S')
+
+    if inactive_hours_end < inactive_hours_start:
+        return current_utc_time <= inactive_hours_end or current_utc_time >= inactive_hours_start
+
+    return inactive_hours_start <= current_utc_time <= inactive_hours_end 
 
 def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
     tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
@@ -212,7 +237,7 @@ def main():
 
     smartsheet_data = get_clusters_from_smartsheet()
 
-    # updating inactive_hours_start for each cluster based on smartsheet
+    # updating inactive_hours_start and end for each cluster based on smartsheet
     for cluster in clusters:
         if cluster.id not in smartsheet_data:
             print(f'{cluster.name} ({cluster.id}) not found in smartsheet data')
@@ -220,24 +245,23 @@ def main():
         
         smartsheet_cluster_info = smartsheet_data[cluster.id]
        
-        if not smartsheet_cluster_info[0]:
+        if smartsheet_cluster_info[0]:
+            cluster.inactive_hours_start = smartsheet_cluster_info[0]
+        else:
             print(f'Start time not found for {cluster.name}')
-            continue
-        if smartsheet_cluster_info[0].count(':') < 1:
-            print(f'Invalid inactive_hours_start {smartsheet_cluster_info[0]} for cluster {cluster.name}')
-            continue
         
-        # checking to see if smartsheet time entry is missing the seconds part
-        if smartsheet_cluster_info[0].count(':') == 1:
-            smartsheet_cluster_info[0] += ':00'
-        cluster.inactive_hours_start = smartsheet_cluster_info[0]
+        if smartsheet_cluster_info[1]:
+            cluster.inactive_hours_end = smartsheet_cluster_info[1]
+        else:
+            print(f'End time not found for {cluster.name}')
+
 
     hibernated_clusters = []
     no_action_clusters = []
 
     for cluster in clusters:
     
-        if cluster.inactive_hours_start and good_time_to_hibernate_cluster(cluster.inactive_hours_start):
+        if good_time_to_hibernate_cluster(cluster):
             if cluster.hcp == "false":
                 if cluster.type == 'ocp':
                     print("Hibernating IPI Cluster - ", cluster.name)
