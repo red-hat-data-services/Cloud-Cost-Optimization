@@ -221,7 +221,7 @@ def main():
         smartsheet_cluster_info = smartsheet_data[cluster.id]
        
         if not smartsheet_cluster_info[0]:
-            print(f'Time not found for {cluster.name}')
+            print(f'Start time not found for {cluster.name}')
             continue
         if smartsheet_cluster_info[0].count(':') < 1:
             print(f'Invalid inactive_hours_start {smartsheet_cluster_info[0]} for cluster {cluster.name}')
@@ -233,10 +233,10 @@ def main():
         cluster.inactive_hours_start = smartsheet_cluster_info[0]
 
     hibernated_clusters = []
-
+    no_action_clusters = []
 
     for cluster in clusters:
-
+    
         if cluster.inactive_hours_start and good_time_to_hibernate_cluster(cluster.inactive_hours_start):
             if cluster.hcp == "false":
                 if cluster.type == 'ocp':
@@ -249,10 +249,14 @@ def main():
                 hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
                 print("Hibernating Hypershift Cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
+        else:
+            no_action_clusters.append(cluster.__dict__)
 
     print("The following clusters were hibernated: ")
     print(json.dumps(hibernated_clusters, indent=4))
 
+    print("No action taken for the following cluster:")
+    print(json.dumps(no_action_clusters, indent=4))
 
 if __name__ == '__main__':
     main()
