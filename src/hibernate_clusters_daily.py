@@ -161,7 +161,7 @@ def good_time_to_hibernate_cluster(cluster):
     
     inactive_hours_start = cluster.inactive_hours_start
     inactive_hours_end = cluster.inactive_hours_end
-
+    buffer_hours = 2
     # if inactive hours start is not set, do not hibernate cluster
     if not inactive_hours_start:
         return False
@@ -177,17 +177,18 @@ def good_time_to_hibernate_cluster(cluster):
     try:
         inactive_hours_start = datetime.datetime.strptime(inactive_hours_start, '%H:%M:%S')
     
-    # if the inactive hours start is misconfigured, default to hibernating cluster immediately
+    # if the inactive hours start is misconfigured, default to not hibernating cluster
     except ValueError:
-        print(f'error parsing inactive hours start on cluster {cluster.name}, defaulting to hibernate')
-        print(f'inactive hours start: {cluster.inactive_hours_start}') 
+        print(f'error parsing inactive hours start on cluster {cluster.name}, defaulting to not hibernating')
+        print(f'inactive hours start field: {cluster.inactive_hours_start}') 
         return False
 
-    # if inactive hours end is misconfigured or blank, default to one day after start, which will cause it to be ignored
+    # if inactive hours end is misconfigured or blank, set it to start + 2 hours (wrapped around to 24 hours)
     try:
         inactive_hours_end = datetime.datetime.strptime(inactive_hours_end, '%H:%M:%S')
     except ValueError:
-        inactive_hours_end = inactive_hours_start + datetime.timedelta(days=1)
+        inactive_hours_end = datetime.datetime.strptime(
+                (inactive_hours_start + datetime.delta(hours=buffer_hours)).strftime('%H:%M:%S'), '%H:%M:%S')
 
     # start, end, and current are all relative to epoch
 
@@ -195,9 +196,9 @@ def good_time_to_hibernate_cluster(cluster):
             datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),'%H:%M:%S')
 
     if inactive_hours_end < inactive_hours_start:
-        return current_utc_time <= inactive_hours_end or current_utc_time >= inactive_hours_start
+        return current_utc_time < inactive_hours_end or current_utc_time >= inactive_hours_start
 
-    return inactive_hours_start <= current_utc_time <= inactive_hours_end 
+    return inactive_hours_start <= current_utc_time < inactive_hours_end 
 
 def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
     tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
