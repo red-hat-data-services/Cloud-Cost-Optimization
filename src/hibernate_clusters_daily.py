@@ -161,6 +161,7 @@ def good_time_to_hibernate_cluster(cluster):
     
     inactive_hours_start = cluster.inactive_hours_start
     inactive_hours_end = cluster.inactive_hours_end
+    # buffer hours used if inactive_hours_end is not specified 
     buffer_hours = 2
     # if inactive hours start is not set, do not hibernate cluster
     if not inactive_hours_start:
@@ -183,22 +184,22 @@ def good_time_to_hibernate_cluster(cluster):
         print(f'inactive hours start field: {cluster.inactive_hours_start}') 
         return False
 
-    # if inactive hours end is misconfigured or blank, set it to start + 2 hours (wrapped around to 24 hours)
+    # if inactive hours end is misconfigured or blank, set it to start + buffer_hours (wrapped around to 24 hours)
+    #  this does not actually set when the cluster gets un-hibernated, but rather just means that the cluster is 
+    #  actively being put into hibernation between those hours
     try:
         inactive_hours_end = datetime.datetime.strptime(inactive_hours_end, '%H:%M:%S')
     except ValueError:
         inactive_hours_end = datetime.datetime.strptime(
                 (inactive_hours_start + datetime.delta(hours=buffer_hours)).strftime('%H:%M:%S'), '%H:%M:%S')
 
-    # start, end, and current are all relative to epoch
-
     current_utc_time = datetime.datetime.strptime(
             datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),'%H:%M:%S')
 
     if inactive_hours_end < inactive_hours_start:
         return current_utc_time < inactive_hours_end or current_utc_time >= inactive_hours_start
-
-    return inactive_hours_start <= current_utc_time < inactive_hours_end 
+    else:
+        return inactive_hours_start <= current_utc_time < inactive_hours_end 
 
 def worker_node_belongs_to_the_ipi_cluster(ec2_instance:dict, cluster_name:str):
     tags = {tag['Key']:tag['Value'] for tag in ec2_instance['Tags']}
