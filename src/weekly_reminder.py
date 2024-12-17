@@ -73,7 +73,7 @@ def get_cluster_list(ocm_account:str):
 
 def run_command(command):
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 
@@ -105,7 +105,7 @@ def send_request_to_update_inactive_hours(row:smartsheet.smartsheet.models.row, 
     payload['sendTo'] = [{'email': row.cells[7].value}, {'email': 'ldimaggi@redhat.com'}, {'email': 'mhorinek@redhat.com'}]
     # , {'email': 'ikhalidi@redhat.com'}
     response = smart.Passthrough.post(f'/sheets/{sheed_id}/updaterequests', payload)
-    print(response)
+    # print(response)
 
 def main():
     clusters = []

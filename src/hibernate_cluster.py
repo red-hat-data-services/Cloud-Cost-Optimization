@@ -197,7 +197,7 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 def hibernate_cluster(cluster: oc_cluster):
@@ -263,8 +263,8 @@ def main():
             hybernate_hypershift_cluster(target_cluster, ec2_map)
         print('starting the smartsheet update')
         ca.main()
-        print('Hibernated the cluster:')
-        print(target_cluster.__dict__)
+        print(f'Hibernated the cluster:{target_cluster.name}')
+        # print(target_cluster.__dict__)
 
 
 

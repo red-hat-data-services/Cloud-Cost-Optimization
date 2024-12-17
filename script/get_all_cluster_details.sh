@@ -14,5 +14,5 @@ else
 fi
 
 
-ocm list clusters
+#ocm list clusters
 ocm list clusters --no-headers > clusters_${ocm_account}.txt

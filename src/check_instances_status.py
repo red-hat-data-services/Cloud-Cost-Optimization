@@ -36,7 +36,7 @@ def get_instances_for_region(region, current_state):
     ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
     ec2_map = {list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags']))[0]['Value']: instance for instance in
                ec2_map if list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags']))}
-    print(region, len(ec2_map))
+    # print(region, len(ec2_map))
     return ec2_map
 
 def get_all_instances(ec2_instances, current_state):
@@ -61,7 +61,7 @@ def check_if_given_tag_exists(tag_name, volume):
     result = False
     if 'Tags' in volume:
         tags = volume['Tags']
-        print(tags)
+        # print(tags)
         for tag in tags:
             if tag['Key'] == tag_name:
                 result = True
@@ -167,7 +167,7 @@ def sync_hcp_node_pools(cluster:oc_cluster):
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 def hibernate_cluster(cluster: oc_cluster):
@@ -199,9 +199,9 @@ def main():
             check_instance_status(cluster, ec2_running_instances[cluster.region], ec2_stopped_instances[cluster.region])
             print("Hypershift cluster - ", cluster.name)
         hibernated_clusters.append(cluster.__dict__)
-        # print(f'Hibernated {cluster.name}')
+        print(f'Hibernated {cluster.name}')
     hibernated_json = json.dumps(hibernated_clusters, indent=4)
-    print(hibernated_json)
+    # print(hibernated_json)
 
 
 if __name__ == '__main__':

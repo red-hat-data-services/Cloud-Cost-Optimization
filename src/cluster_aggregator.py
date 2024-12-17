@@ -75,7 +75,7 @@ def get_cluster_list(ocm_account:str):
 
 def run_command(command):
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 def build_cells(cluster: oc_cluster, column_map:dict):
@@ -173,13 +173,13 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         payload = json.dumps(smartsheet_existing_data, indent=4)
         print('Updating existing clusters', payload)
         response = smart.Passthrough.put(f'/sheets/{sheed_id}/rows', payload)
-        print(response)
+        # print(response)
 
     if smartsheet_new_data:
         payload = json.dumps(smartsheet_new_data, indent=4)
         print('Adding new clusters', payload)
         response = smart.Passthrough.post(f'/sheets/{sheed_id}/rows', payload)
-        print(response)
+        # print(response)
         payload = json.dumps({'sortCriteria': [{'columnId': column_map['Name'], 'direction': 'ASCENDING'}]})
         response_sort = smart.Passthrough.post(f'/sheets/{sheed_id}/sort', payload)
 
@@ -200,7 +200,7 @@ def update_smartsheet_data(clusters:dict[oc_cluster]):
         delete_url = f'/sheets/{sheed_id}/rows?ids={",".join(smartsheet_deleted_data)}'
         print(delete_url)
         response = smart.Passthrough.delete(delete_url)
-        print(response)
+        # print(response)
 
 def send_request_to_update_inactive_hours(row:smartsheet.smartsheet.models.row, column_map:dict, smart:smartsheet.smartsheet.Smartsheet):
     sheed_id = 7086931905040260
@@ -211,7 +211,7 @@ def send_request_to_update_inactive_hours(row:smartsheet.smartsheet.models.row, 
     payload['sendTo'] = [{'email': row.cells[7].value}]
     # , {'email': 'ikhalidi@redhat.com'}
     response = smart.Passthrough.post(f'/sheets/{sheed_id}/updaterequests', payload)
-    print(response)
+    # print(response)
 
 
 
@@ -259,7 +259,7 @@ def main():
     update_rosa_hosted_clusters_status(clusters)
 
     names = [cluster.name for cluster in clusters]
-    print(names)
+    # print(names)
     update_smartsheet_data(clusters)
 
 

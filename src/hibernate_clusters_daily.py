@@ -96,7 +96,7 @@ def get_cluster_list(ocm_account:str):
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 
@@ -252,8 +252,7 @@ def main():
         else:
             no_action_clusters.append(cluster.__dict__)
 
-    print("The following clusters were hibernated: ")
-    print(json.dumps(hibernated_clusters, indent=4))
+    # print(json.dumps(hibernated_clusters, indent=4))
 
     print("No action taken for the following cluster:")
     print(json.dumps(no_action_clusters, indent=4))

@@ -207,7 +207,7 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 def hibernate_cluster(cluster: oc_cluster):
@@ -269,7 +269,7 @@ def main():
         print('starting the smartsheet update')
         ca.main()
         print('Resumed the cluster:')
-        print(target_cluster.__dict__)
+        print(target_cluster.name)
 
 
 
