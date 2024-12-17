@@ -96,7 +96,7 @@ def get_cluster_list(ocm_account:str):
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 
@@ -240,7 +240,7 @@ def main():
             hibernated_clusters.append(cluster.__dict__)
 
 
-    print(json.dumps(hibernated_clusters, indent=4))
+    # print(json.dumps(hibernated_clusters, indent=4))
 
 
 if __name__ == '__main__':

@@ -145,7 +145,7 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 def hibernate_cluster(cluster: oc_cluster):
@@ -184,9 +184,9 @@ def main():
             print("Hypershift cluster - ", cluster.name)
         if outcome:
             hibernated_clusters.append(cluster.__dict__)
-        # print(f'Hibernated {cluster.name}')
+        print(f'Hibernated {cluster.name}')
     hibernated_json = json.dumps(hibernated_clusters, indent=4)
-    print(hibernated_json)
+    # print(hibernated_json)
     open('hibernated_latest.json', 'w').write(hibernated_json)
     s3 = boto3.client('s3')
     try:

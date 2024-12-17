@@ -23,7 +23,7 @@ class oc_cluster:
 def run_command(command):
     print(command)
     output = os.popen(command).read()
-    print(output)
+    # print(output)
     return output
 
 def get_last_hibernated():
@@ -124,9 +124,9 @@ def main():
             resume_hypershift_cluster(cluster, ec2_instances[cluster.region])
             print("Hypershift cluster - ", cluster.name)
         resumed_clusters.append(cluster.__dict__)
-        # print(f'Hibernated {cluster.name}')
+        print(f'Hibernated {cluster.name}')
 
-    print(json.dumps(resumed_clusters, indent=4))
+    # print(json.dumps(resumed_clusters, indent=4))
 
 
 if __name__ == '__main__':
