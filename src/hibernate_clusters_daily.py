@@ -255,7 +255,7 @@ def main():
     # print(json.dumps(hibernated_clusters, indent=4))
 
     print("No action taken for the following cluster:")
-    print(json.dumps(no_action_clusters, indent=4))
+    # print(json.dumps(no_action_clusters, indent=4))
 
 if __name__ == '__main__':
     main()
