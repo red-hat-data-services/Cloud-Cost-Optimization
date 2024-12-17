@@ -211,37 +211,51 @@ def main():
         get_all_cluster_details(ocm_account, clusters)
 
     smartsheet_data = get_clusters_from_smartsheet()
-    for cluster in clusters:
-        if cluster.id in smartsheet_data:
-            smartsheet_cluster_info = smartsheet_data[cluster.id]
 
-            if smartsheet_cluster_info[0]:
-                if smartsheet_cluster_info[0].count(':') < 1:
-                    print(f'Invalid inactive_hours_start {smartsheet_cluster_info[0]} for cluster {cluster.name}')
-                    continue
-                if smartsheet_cluster_info[0].count(':') == 1:
-                    smartsheet_cluster_info[0] += ':00'
-                cluster.inactive_hours_start = smartsheet_cluster_info[0]
+    # updating inactive_hours_start for each cluster based on smartsheet
+    for cluster in clusters:
+        if cluster.id not in smartsheet_data:
+            print(f'{cluster.name} ({cluster.id}) not found in smartsheet data')
+            continue
+        
+        smartsheet_cluster_info = smartsheet_data[cluster.id]
+       
+        if not smartsheet_cluster_info[0]:
+            print(f'Start time not found for {cluster.name}')
+            continue
+        if smartsheet_cluster_info[0].count(':') < 1:
+            print(f'Invalid inactive_hours_start {smartsheet_cluster_info[0]} for cluster {cluster.name}')
+            continue
+        
+        # checking to see if smartsheet time entry is missing the seconds part
+        if smartsheet_cluster_info[0].count(':') == 1:
+            smartsheet_cluster_info[0] += ':00'
+        cluster.inactive_hours_start = smartsheet_cluster_info[0]
 
     hibernated_clusters = []
-    for cluster in clusters:
+    no_action_clusters = []
 
+    for cluster in clusters:
+    
         if cluster.inactive_hours_start and good_time_to_hibernate_cluster(cluster.inactive_hours_start):
             if cluster.hcp == "false":
                 if cluster.type == 'ocp':
+                    print("Hibernating IPI Cluster - ", cluster.name)
                     hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
-                    print("IPI - ", cluster.name)
                 else:
+                    print("Hibernating OSD or ROSA Classic Cluster - ", cluster.name)
                     hibernate_cluster(cluster)
-                    print("OSD or ROSA Classic - ", cluster.name)
             else:
                 hybernate_hypershift_cluster(cluster, ec2_instances[cluster.region])
-                print("Hypershift cluster - ", cluster.name)
+                print("Hibernating Hypershift Cluster - ", cluster.name)
             hibernated_clusters.append(cluster.__dict__)
-
+        else:
+            no_action_clusters.append(cluster.__dict__)
 
     # print(json.dumps(hibernated_clusters, indent=4))
 
+    print("No action taken for the following cluster:")
+    print(json.dumps(no_action_clusters, indent=4))
 
 if __name__ == '__main__':
     main()
