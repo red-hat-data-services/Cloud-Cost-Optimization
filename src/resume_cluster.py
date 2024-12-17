@@ -81,7 +81,7 @@ def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
 def resume_hypershift_cluster(cluster:oc_cluster, ec2_map:dict, ec2_running_map:dict):
     # ec2_map = ec2_instances[cluster.region]
 
-    print([name for name in ec2_map])
+    # print([name for name in ec2_map])
     worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
     worker_nodes_running = [ec2_name for ec2_name in ec2_running_map if ec2_name.startswith(f'{cluster.name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
@@ -160,7 +160,7 @@ def wait_for_rosa_cluster_to_be_ready(cluster:oc_cluster, worker_count:int):
         status_map = get_instance_status(cluster, InstanceIds)
 
 def resume_ipi_cluster(cluster:oc_cluster, ec2_map:dict):
-    print([name for name in ec2_map])
+    # print([name for name in ec2_map])
     worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
