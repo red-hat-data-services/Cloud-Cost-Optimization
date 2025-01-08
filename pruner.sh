@@ -18,8 +18,8 @@ PROJECT=
 SVC_ACCT=
 KEY_FILE=
 
-while [ $# -gt 0 ]; do
-  key=$1
+while [ "$#" -gt 0 ]; do
+  key="$1"
   case $key in 
     --help | -h)
       help
@@ -30,8 +30,8 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     --project | -p)
-      PROJECT=$2
-      if [ -z $PROJECT ]; then
+      PROJECT="$2"
+      if [ -z "$PROJECT" ]; then
         echo "please specify a project id after $1"
         help
         exit 1
@@ -39,8 +39,8 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     --service-account | -s)
-      SVC_ACCT=$2
-      if [ -z $SVC_ACCT ]; then
+      SVC_ACCT="$2"
+      if [ -z "$SVC_ACCT" ]; then
         echo "please specify a service account after $1"
         help
         exit 1
@@ -48,8 +48,8 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     --key-file | -k)
-      KEY_FILE=$2
-      if [ -z $KEY_FILE ]; then
+      KEY_FILE="$2"
+      if [ -z "$KEY_FILE" ]; then
         echo "please specify a key file path after $1"
         help
         exit 1
@@ -96,7 +96,7 @@ fi
 
 if [ -n "$SHOW_OLD_JOBS" ]; then
   for job in $OLD_JOBS; do
-    echo $job
+    echo "$job"
   done
   exit 0
 fi
@@ -146,7 +146,7 @@ group_json_by() {
 #  --region=B banana 
 
 format_for_deletion() {
-  group_json_by $1 |  jq -r --arg PARAM "$1" '"--" + $PARAM + "=" + .[$PARAM] + " " + (.values | join(" "))'
+  group_json_by "$1" |  jq -r --arg PARAM "$1" '"--" + $PARAM + "=" + .[$PARAM] + " " + (.values | join(" "))'
 }
 
 
