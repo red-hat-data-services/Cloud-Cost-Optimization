@@ -151,6 +151,17 @@ format_for_deletion() {
 
 
 for OLD_JOB in $OLD_JOBS; do
+  if [ -z $(echo "$OLD_JOB" | grep '^ci-op-') ]; then
+    echo "warning: Job id $OLD_JOB does not start with 'ci-op-'."
+    echo "  Skipping to prevent unintended deletion of resources"
+    continue
+  fi
+
+  if [ -n $(echo "$OLD_JOB" | grep '[^a-zA-Z0-9\-]') ]; then
+    echo "warning: Job id '$OLD_JOB' contains characters outside of range 'a-zA-Z','0-9,'-'"
+    echo "  Skipping to prevent unintended deletion of resources"
+    continue
+  fi
   echo "Processing $OLD_JOB ..."
 
   echo "finding and deleting compute instance-related resources..."
