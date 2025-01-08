@@ -2,16 +2,12 @@
 
 set -e
 
-# TODO: Add arguments
-# 3. --service-account: specify service account
-
-
 help() {
 cat << EOF
-usage: pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
+usage: ./pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
   -j, --show-old-jobs - Print old job names and exit
   -p, --project - Specify google cloud project id
-  -s, --service-account - Specify google cloud service account
+  -s, --service-account - Specify google cloud service account (need to specify a key file as well)
   -k, --key-file - Specify key file for google cloud service account
   JOB_IDs - delete resources for specific OpenShift CI job IDs only
 EOF
