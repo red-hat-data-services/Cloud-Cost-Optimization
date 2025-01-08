@@ -9,9 +9,10 @@ set -e
 help() {
 cat << EOF
 usage: pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
---show-stale-jobs: prints the stale job names and exit
---project: specify project id
---service-account: specify service account
+  -j, --show-old-jobs - Print old job names and exit
+  -p, --project - Specify google cloud project id
+  -s, --service-account - Specify google cloud service account
+  JOB_IDs - delete resources for specific OpenShift CI job IDs only
 EOF
 }
 
@@ -26,28 +27,38 @@ while [ $# -gt 0 ]; do
       help
       exit
       ;;
-    --show-stale-jobs | -j)
+    --show-old-jobs | -j)
       SHOW_OLD_JOBS=true
       shift
       ;;
     --project | -p)
       PROJECT=$2
-      shift
-      shift
+      if [ -z $PROJECT ]; then
+        echo "please specify a project id after $1"
+        help
+        exit 1
+      fi
+      shift 2
       ;;
     --service-account | -s)
       SVC_ACCT=$2
-      shift
-      shift
+      if [ -z $SVC_ACCT ]; then
+        echo "please specify a service account after $1"
+        help
+        exit 1
+      fi
+      shift 2
       ;;
     -*)
       echo "unrecognized argument $1"
       help
       exit 1
       ;;
+    *)
+      break
+      ;;
   esac
 done
-
 if [ -n "$SVC_ACCT" ]; then
   echo TODO set service account to run actions
 fi
@@ -61,7 +72,7 @@ DATE_FORMAT="%Y-%m-%dT%H:%M:%SZ"
 NUM_DAYS_BACK=2
 CUTOFF_DATE=$([ "$(uname)" = Linux ] && date --date="$NUM_DAYS_BACK days ago" +"$DATE_FORMAT" || date -v "-${NUM_DAYS_BACK}d" +"$DATE_FORMAT")
 
-if [ -z "$@" ]; then
+if [ -z "$1" ]; then
   # get google dns managed zones
   ZONES=$(gcloud dns managed-zones list --filter="name ~ ^ci-op AND creationTime < $CUTOFF_DATE" --format json | jq -r '.[].name')
 
@@ -190,9 +201,7 @@ for OLD_JOB in $OLD_JOBS; do
     echo "$DNS_RECORDS" | jq -r '.[] | select(.type=="A") | .name' | xargs -r -L 1 gcloud dns record-sets delete --zone "$DNS_ZONE" --type A 
     gcloud dns managed-zones delete "$DNS_ZONE"
   fi
- 
 
   echo "Cleanup of $OLD_JOB complete!"
-  break
 done
 
