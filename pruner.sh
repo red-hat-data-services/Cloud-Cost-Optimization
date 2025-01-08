@@ -3,8 +3,6 @@
 set -e
 
 # TODO: Add arguments
-# 1. --print-stale-jobs: prints the stale job names and exit
-# 2. --project: specify project id
 # 3. --service-account: specify service account
 
 
@@ -55,7 +53,7 @@ if [ -n "$SVC_ACCT" ]; then
 fi
 
 if [ -n "$PROJECT" ]; then
-  gcloud config set project $PROJECT
+  gcloud config set project "$PROJECT" --no-user-output-enabled --quiet
 fi
 
 
