@@ -2,32 +2,133 @@
 
 set -e
 
+# TODO: Add arguments
+# 1. --print-stale-jobs: prints the stale job names and exit
+# 2. --project: specify project id
+# 3. --service-account: specify service account
 
-## Helper functions used for formatting intput/output
 
-group_json_by() {
-  # usage: echo "{some json}" | group_json_by PARAM
-  jq -r --arg PARAM "$1" 'group_by(.[$PARAM])[]| [{$PARAM:(.[0].[$PARAM]),values:[.[]|.name] }]  | .[] '
+help() {
+cat << EOF
+usage: pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
+--show-stale-jobs: prints the stale job names and exit
+--project: specify project id
+--service-account: specify service account
+EOF
 }
 
-format_for_deletion() {
-  # usage: echo "{some json}" | format_for_deletion PARAM
-  group_json_by $1 |  jq -r --arg PARAM "$1" '"--" + $PARAM + "=" + .[$PARAM] + " " + (.values | join(" "))'
-}
+SHOW_OLD_JOBS=
+PROJECT=
+SVC_ACCT=
 
-# gcloud config set project project-id
+while [ $# -gt 0 ]; do
+  key=$1
+  case $key in 
+    --help | -h)
+      help
+      exit
+      ;;
+    --show-stale-jobs | -j)
+      SHOW_OLD_JOBS=true
+      shift
+      ;;
+    --project | -p)
+      PROJECT=$2
+      shift
+      shift
+      ;;
+    --service-account | -s)
+      SVC_ACCT=$2
+      shift
+      shift
+      ;;
+    -*)
+      echo "unrecognized argument $1"
+      help
+      exit 1
+      ;;
+  esac
+done
 
-TWO_DAYS_AGO=$(python3 -c 'import datetime; print((datetime.datetime.now(datetime.UTC)-datetime.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
+if [ -n "$SVC_ACCT" ]; then
+  echo TODO set service account to run actions
+fi
 
-if [ -z "$1" ]; then
+if [ -n "$PROJECT" ]; then
+  gcloud config set project $PROJECT
+fi
+
+
+DATE_FORMAT="%Y-%m-%dT%H:%M:%SZ"
+NUM_DAYS_BACK=2
+CUTOFF_DATE=$([ "$(uname)" = Linux ] && date --date="$NUM_DAYS_BACK days ago" +"$DATE_FORMAT" || date -v "-${NUM_DAYS_BACK}d" +"$DATE_FORMAT")
+
+if [ -z "$@" ]; then
   # get google dns managed zones
-  ZONES=$(gcloud dns managed-zones list --filter="name ~ ^ci-op AND creationTime < $TWO_DAYS_AGO" --format json | jq -r '.[].name')
+  ZONES=$(gcloud dns managed-zones list --filter="name ~ ^ci-op AND creationTime < $CUTOFF_DATE" --format json | jq -r '.[].name')
 
   # use the list of zones to get the total list of ci jobs.
   OLD_JOBS=$(echo "$ZONES" | sed 's/-private-zone$//')
 else
-  OLD_JOBS="$1"
+  OLD_JOBS="$@"
 fi
+
+if [ -n "$SHOW_OLD_JOBS" ]; then
+  for job in $OLD_JOBS; do
+    echo $job
+  done
+  exit 0
+fi
+
+## Helper functions used for formatting intput/output
+
+# example INPUT for both helper functions:
+#  [{
+#    "region":"A",
+#    "name":"apple"
+#  },{
+#    "region":"B",
+#    "name":"banana"
+#  }]
+
+# function group_json_by()
+#   groups the name of resources by PARAM
+#
+# usage: echo "{some json}" | group_json_by PARAM
+#
+# example: 
+# > echo "$INPUT" | group_json_by region
+#  {
+#    "region": "A",
+#    "values": [
+#      "apple"
+#    ]
+#  }
+#  {
+#    "region": "B",
+#    "values": [
+#      "banana"
+#    ]
+#  }
+
+group_json_by() {
+  jq -r --arg PARAM "$1" 'group_by(.[$PARAM])[]| [{$PARAM:(.[0].[$PARAM]),values:[.[]|.name] }]  | .[] '
+}
+
+# function format_for_deletion()
+#   creates strings in the correct format to use in gcloud delete commands.
+# usage: echo "{some json}" | format_for_deletion PARAM
+#
+# example: 
+# > echo "$INPUT" | format_for_deletion region
+#  --region=A apple
+#  --region=B banana 
+
+format_for_deletion() {
+  group_json_by $1 |  jq -r --arg PARAM "$1" '"--" + $PARAM + "=" + .[$PARAM] + " " + (.values | join(" "))'
+}
+
+
 for OLD_JOB in $OLD_JOBS; do
   echo "Processing $OLD_JOB ..."
 
