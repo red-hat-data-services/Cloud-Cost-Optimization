@@ -12,6 +12,7 @@ usage: pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
   -j, --show-old-jobs - Print old job names and exit
   -p, --project - Specify google cloud project id
   -s, --service-account - Specify google cloud service account
+  -k, --key-file - Specify key file for google cloud service account
   JOB_IDs - delete resources for specific OpenShift CI job IDs only
 EOF
 }
@@ -19,6 +20,7 @@ EOF
 SHOW_OLD_JOBS=
 PROJECT=
 SVC_ACCT=
+KEY_FILE=
 
 while [ $# -gt 0 ]; do
   key=$1
@@ -49,6 +51,15 @@ while [ $# -gt 0 ]; do
       fi
       shift 2
       ;;
+    --key-file | -k)
+      KEY_FILE=$2
+      if [ -z $KEY_FILE ]; then
+        echo "please specify a key file path after $1"
+        help
+        exit 1
+      fi
+      shift 2
+      ;;
     -*)
       echo "unrecognized argument $1"
       help
@@ -60,7 +71,12 @@ while [ $# -gt 0 ]; do
   esac
 done
 if [ -n "$SVC_ACCT" ]; then
-  echo TODO set service account to run actions
+  if [ -z "$KEY_FILE" ]; then
+    echo "Please specify a key file for the service account $SVC_ACCT"
+    help
+    exit 1
+  fi
+  gcloud auth activate-service-account "$SVC_ACCT" --key-file "$KEY_FILE" --no-user-output-enabled
 fi
 
 if [ -n "$PROJECT" ]; then
