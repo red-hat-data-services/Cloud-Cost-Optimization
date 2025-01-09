@@ -11,6 +11,8 @@ jobs:
       id-token: 'write'
 
     steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
     - id: 'auth'
       uses: 'google-github-actions/auth@v2'
       with:
@@ -19,5 +21,6 @@ jobs:
     - name: 'Set up Cloud SDK'
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    - name: 'Use gcloud CLI'
-      run: 'gcloud info'
+    - name: 'List Old CI Jobs'
+      run: |
+        ./gcp/oci-pruner.sh -p "${{ secrets.OCI_GCP_PROJECT }}" -j
