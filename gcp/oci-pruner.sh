@@ -210,5 +210,6 @@ for OLD_JOB in $OLD_JOBS; do
   fi
 
   echo "Cleanup of $OLD_JOB complete!"
+  echo "-------------------"
 done
 

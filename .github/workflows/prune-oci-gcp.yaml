@@ -23,4 +23,9 @@ jobs:
 
     - name: 'List Old CI Jobs'
       run: |
-        ./gcp/oci-pruner.sh -p "${{ secrets.OCI_GCP_PROJECT }}" -j
+        # project id is embedded in the service account credentials
+        ./gcp/oci-pruner.sh -j
+
+    - name: 'Prune 2 CI Jobs'
+      run: |
+        ./gcp/oci-pruner.sh -j | head -n2 | xargs -r ./gcp/oci-pruner.sh
