@@ -21,12 +21,16 @@ jobs:
     - name: 'Set up Cloud SDK'
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    - name: 'List Old CI Jobs'
+    - name: 'List Old OCI Jobs'
       run: |
         # project id is embedded in the service account credentials
+        echo "::add-mask::$CLOUDSDK_CORE_PROJECT"
+        echo "Listing old openshift CI jobs..."
         ./gcp/oci-pruner.sh -j
 
-    - name: 'Prune 1 CI Job'
+    - name: 'Prune 1 OCI Job'
       run: |
-        echo "::add-mask::${{ secrets.OCI_GCP_PROJECT }}"
-        ./gcp/oci-pruner.sh -j | head -n1 | xargs -r ./gcp/oci-pruner.sh
+        # project id is embedded in the service account credentials
+        echo "::add-mask::$CLOUDSDK_CORE_PROJECT"
+        echo "Deleting resources associated with old openshift CI jobs..."
+        ./gcp/oci-pruner.sh -j |  awk 'NR==1' | xargs -r ./gcp/oci-pruner.sh
