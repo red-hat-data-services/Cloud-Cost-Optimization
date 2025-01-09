@@ -1,7 +1,7 @@
 # Running the pruner script
 
 ```
-usage: ./pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
+usage: ./oci-pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
   -j, --show-old-jobs - Print old job names and exit
   -p, --project - Specify google cloud project id
   -s, --service-account - Specify google cloud service account (need to specify a key file as well)
