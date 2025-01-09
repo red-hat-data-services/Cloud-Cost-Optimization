@@ -28,4 +28,5 @@ jobs:
 
     - name: 'Prune 1 CI Job'
       run: |
+        echo "::add-mask::${{ secrets.OCI_GCP_PROJECT }}"
         ./gcp/oci-pruner.sh -j | head -n1 | xargs -r ./gcp/oci-pruner.sh
