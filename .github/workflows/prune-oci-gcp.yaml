@@ -26,6 +26,6 @@ jobs:
         # project id is embedded in the service account credentials
         ./gcp/oci-pruner.sh -j
 
-    - name: 'Prune 2 CI Jobs'
+    - name: 'Prune 1 CI Job'
       run: |
-        ./gcp/oci-pruner.sh -j | head -n2 | xargs -r ./gcp/oci-pruner.sh
+        ./gcp/oci-pruner.sh -j | head -n1 | xargs -r ./gcp/oci-pruner.sh
