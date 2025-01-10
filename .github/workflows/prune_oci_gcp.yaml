@@ -1,0 +1,39 @@
+name: Prune Stale Openshift CI Resources on GCP
+run-name: Openshift CI Pruner
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 6'
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    # Add "id-token" with the intended permissions.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.OCI_SVC_ACCT_GCP_CREDENTIALS }}'
+
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v2'
+
+    - name: 'List Old OCI Jobs'
+      run: |
+        # project id is embedded in the service account credentials
+        echo "::add-mask::$CLOUDSDK_CORE_PROJECT"
+        echo "Listing old openshift CI jobs..."
+        ./gcp/oci-pruner.sh -j
+
+    - name: 'Prune OCI Jobs'
+      run: |
+        # project id is embedded in the service account credentials
+        echo "::add-mask::$CLOUDSDK_CORE_PROJECT"
+        echo "Deleting resources associated with old openshift CI jobs..."
+        ./gcp/oci-pruner.sh 
+
