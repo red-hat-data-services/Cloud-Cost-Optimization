@@ -130,7 +130,8 @@ group_json_by() {
 #  --region=B banana 
 
 format_for_deletion() {
-  group_json_by "$1" |  jq -r --arg PARAM "$1" '"--" + $PARAM + "=" + .[$PARAM] + " " + (.values | join(" "))'
+  group_json_by "$1" |  jq -r --arg PARAM "$1" '"--" + $PARAM + "=" + .[$PARAM] + " " + (.values | join(" "))' \
+    | sed "s/--$1= /--global /"
 }
 
 
@@ -158,8 +159,11 @@ for OLD_JOB in $OLD_JOBS; do
   FWD_RULES=$(gcloud compute forwarding-rules list --filter "name ~ $OLD_JOB" --format json)
   echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 gcloud compute forwarding-rules delete --quiet
 
+  TCP_PROXIES=$(gcloud compute target-tcp-proxies list --filter "name ~ $OLD_JOB" --format json)
+  echo "$TCP_PROXIES" | format_for_deletion region | xargs -r -L 1 gcloud compute target-tcp-proxies delete --quiet
+
   BACKEND_SVC=$(gcloud compute backend-services list --filter "name ~ $OLD_JOB" --format json)
-  echo "$BACKEND_SVC" | format_for_deletion region | xargs -r gcloud compute backend-services delete --quiet
+  echo "$BACKEND_SVC" | format_for_deletion region | xargs -r -L 1 gcloud compute backend-services delete --quiet
 
   INST_GROUPS=$(gcloud compute instance-groups list --filter "name ~ $OLD_JOB" --format json)
   echo "$INST_GROUPS" |  format_for_deletion zone | xargs -r -L 1 gcloud compute instance-groups unmanaged delete --quiet
@@ -181,7 +185,7 @@ for OLD_JOB in $OLD_JOBS; do
   echo "$SUBNETS" | format_for_deletion region | xargs -r -L 1 gcloud compute networks subnets delete --quiet
 
   HEALTH_CHECKS=$(gcloud compute health-checks list --filter "name ~ $OLD_JOB" --format json)
-  echo "$HEALTH_CHECKS" |  jq -r '.[].name' | xargs -r gcloud compute health-checks delete --quiet
+  echo "$HEALTH_CHECKS" | format_for_deletion region | xargs -r gcloud compute health-checks delete --quiet
 
   TARGET_POOLS=$(gcloud compute target-pools list --filter "name ~ $OLD_JOB" --format json)
   echo "$TARGET_POOLS" | format_for_deletion region  | xargs -r -L 1 gcloud compute target-pools delete --quiet
