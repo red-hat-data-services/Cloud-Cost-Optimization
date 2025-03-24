@@ -2,6 +2,8 @@ name: Prune Stale Openshift CI Resources on GCP
 run-name: Openshift CI Pruner
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 6'
 jobs:
   prune:
     runs-on: ubuntu-latest
@@ -28,9 +30,10 @@ jobs:
         echo "Listing old openshift CI jobs..."
         ./gcp/oci-pruner.sh -j
 
-    - name: 'Prune 1 OCI Job'
+    - name: 'Prune OCI Jobs'
       run: |
         # project id is embedded in the service account credentials
         echo "::add-mask::$CLOUDSDK_CORE_PROJECT"
         echo "Deleting resources associated with old openshift CI jobs..."
-        ./gcp/oci-pruner.sh -j |  awk 'NR==1' | xargs -r ./gcp/oci-pruner.sh
+        ./gcp/oci-pruner.sh 
+

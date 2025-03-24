@@ -1,3 +1,12 @@
+# OCI GCP Pruner
+
+This script is used to delete resources produced on Google Cloud by Openshift CI that inadverdently get left behind due to prematurely failing CI jobs.
+
+# Prerequisites
+
+- `gcloud` cli tool
+- if running on a user account, need to run `gcloud auth login` beforehand
+
 # Running the pruner script
 
 ```
