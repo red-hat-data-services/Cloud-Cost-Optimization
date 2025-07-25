@@ -25,7 +25,7 @@ jobs:
 
     - name: Run Script
       run: |
-        rosa login --client-id OCM_CLIENT_ID --client-secret OCM_CLIENT_SECRET
+        rosa login --client-id $OCM_CLIENT_ID --client-secret $OCM_CLIENT_SECRET
         ./script/rosa_role_cleanup.sh
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ROLE_DELETE_ID }}
