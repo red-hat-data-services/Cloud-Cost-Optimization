@@ -1,0 +1,29 @@
+name: Prune Stale ROSA Roles on AWS
+run-name: ROSA Role Pruner
+on:
+  workflow_dispatch:
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+    
+    - name: Install rosa cli
+      run: |
+        echo $PATH
+        apt-get install -y podman
+        podman run --pull=always --rm registry.ci.openshift.org/ci/rosa-aws-cli:latest cat /usr/bin/rosa > ~/rosa && chmod +x ~/rosa 
+        rosa version
+        ./rosa version
+
+#    - name: Test
+#      run: |
+#        echo "test"
+#      env:
+#        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#        AWS_DEFAULT_REGION: 'us-east-1'
+
+
+
