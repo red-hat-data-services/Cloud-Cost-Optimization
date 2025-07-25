@@ -24,5 +24,6 @@ while IFS= read -r CLUSTER_NAME; do
 done < clusters-with-roles.txt
 
 # execute operator role deletion
+echo "list of roles to delete:"
 cat clusters-with-roles-to-delete.txt
 # cat clusters-with-roles-to-delete.txt  | xargs -n 1 rosa delete operator-roles -m auto -y --prefix 
