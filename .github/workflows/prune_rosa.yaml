@@ -2,6 +2,9 @@ name: Prune Stale ROSA Roles on AWS
 run-name: ROSA Role Pruner
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+    - rosa-cleanup
 jobs:
   prune:
     runs-on: ubuntu-latest
