@@ -1,4 +1,6 @@
+#!/bin/bash 
 
+set -e
 # get list of all roles in the account
 aws iam list-roles --query 'Roles[*].RoleName'  --output json > roles.json
 
@@ -27,7 +29,18 @@ done < clusters-with-roles.txt
 echo "list of roles to delete:"
 cat clusters-with-roles-to-delete.txt
 
-echo "running deletion..."
-cat clusters-with-roles-to-delete.txt  | xargs -n 1 rosa delete operator-roles -m auto -y --prefix 
+NUM_CLUSTERS=(cat clusters-with-roles-to-delete.txt | wc -l)
+
+if [[ "$NUM_CLUSTERS" -lt 20 ]]; then
+
+  echo "running deletion..."
+  while IFS= read -r CLUSTER_NAME_PREFIX; do
+    rosa delete operator-roles -m auto -y --prefix "$CLUSTER_NAME_PREFIX"
+  done < clusters-with-roles-to-delete.txt
+else
+
+  echo "More than 20 clusters were marked for deletion, which is anomalous and could indicate an issue with reaching the OCM api. Please verify that the clusters do not in fact exist and run this automation manually with the override enabled"
+  exit 1
+fi
 
 echo "job complete"
