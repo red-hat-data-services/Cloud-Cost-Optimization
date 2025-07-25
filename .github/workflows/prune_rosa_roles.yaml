@@ -2,6 +2,14 @@ name: Prune Stale ROSA Roles on AWS
 run-name: ROSA Role Pruner
 on:
   workflow_dispatch:
+    inputs:
+      override:
+        type: choice
+        description: Bypass the anomaly check that sees if there are more than 20 clusters that are marked as nonexistent
+        default: false
+        options:
+          - true
+          - false
   schedule:
   - cron: '0 4 * * 6'
 jobs:
@@ -29,6 +37,7 @@ jobs:
         OCM_CLIENT_ID: ${{ secrets.OCM_CLIENT_ID }}
         OCM_CLIENT_SECRET: ${{ secrets.OCM_CLIENT_SECRET }}
         AWS_DEFAULT_REGION: 'us-east-1'
+        OVERRIDE: ${{ github.event.inputs.override }}
 
 
 
