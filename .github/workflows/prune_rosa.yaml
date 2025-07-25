@@ -19,7 +19,7 @@ jobs:
       run: |
         echo $PATH
         podman run --pull=always --rm registry.ci.openshift.org/ci/rosa-aws-cli:latest cat /usr/bin/rosa > ~/rosa && chmod +x ~/rosa 
-        mv ~/rosa ~/.local/bin
+        mv ~/rosa ~/.local/bin/rosa
         rosa version
 
 #    - name: Test
