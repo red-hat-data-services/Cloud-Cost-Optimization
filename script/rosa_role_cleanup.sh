@@ -40,7 +40,7 @@ cat clusters-with-roles-to-delete.txt
 
 echo "running deletion..."
 while IFS= read -r CLUSTER_NAME_PREFIX; do
-  echo rosa delete operator-roles -m auto -y --prefix "$CLUSTER_NAME_PREFIX"
+  rosa delete operator-roles -m auto -y --prefix "$CLUSTER_NAME_PREFIX"
 done < clusters-with-roles-to-delete.txt
 
 
