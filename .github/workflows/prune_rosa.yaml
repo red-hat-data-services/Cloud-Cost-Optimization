@@ -18,7 +18,6 @@ jobs:
     - name: Install rosa cli
       run: |
         echo $PATH
-        sudo apt-get install -y podman
         podman run --pull=always --rm registry.ci.openshift.org/ci/rosa-aws-cli:latest cat /usr/bin/rosa > ~/rosa && chmod +x ~/rosa 
         rosa version
         ./rosa version
