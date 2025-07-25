@@ -35,7 +35,7 @@ if [[ "$NUM_CLUSTERS" -lt 20 ]]; then
 
   echo "running deletion..."
   while IFS= read -r CLUSTER_NAME_PREFIX; do
-    rosa delete operator-roles -m auto -y --prefix "$CLUSTER_NAME_PREFIX"
+    echo rosa delete operator-roles -m auto -y --prefix "$CLUSTER_NAME_PREFIX"
   done < clusters-with-roles-to-delete.txt
 else
 
