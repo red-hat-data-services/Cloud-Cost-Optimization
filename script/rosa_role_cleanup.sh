@@ -15,7 +15,7 @@ while IFS= read -r CLUSTER_NAME; do
   echo "processing $CLUSTER_NAME..."
 
   if [[ "$NUM_CLUSTERS" -gt 20 && "$OVERRIDE" != "true" ]]; then
-    echo "More than 20 clusters were marked for deletion, which is anomalous and could indicate an issue with reaching the OCM api. Please verify that the clusters do not in fact exist and run this automation manually with the override enabled"
+    echo "ERROR: More than 20 clusters were marked for deletion, which is anomalous and could indicate an issue with reaching the OCM api. Please verify that the clusters do not in fact exist, and if so, run this automation manually with the override enabled"
     exit 1
   fi
 
