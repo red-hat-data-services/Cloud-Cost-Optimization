@@ -7,6 +7,7 @@ cat << EOF
 usage: ./oci-pruner.sh [-j] [-p] [-s] [JOB_ID_1 JOB_ID_2 ...]
   -j, --show-old-jobs - Print old job names and exit
   -p, --project - Specify google cloud project id
+  -d, --dry-run - Show print delete commands without executing them
   -k, --key-file - Specify a JSON key file for google cloud service account (account username is embedded in key file)
   JOB_IDs - delete resources for specific OpenShift CI job IDs only
 EOF
@@ -15,6 +16,7 @@ EOF
 SHOW_OLD_JOBS=
 PROJECT=
 KEY_FILE=
+DRY_RUN=
 
 while [ "$#" -gt 0 ]; do
   key="$1"
@@ -25,6 +27,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --show-old-jobs | -j)
       SHOW_OLD_JOBS=true
+      shift
+      ;;
+    --dry-run | -d)
+      DRY_RUN=echo
       shift
       ;;
     --project | -p)
@@ -151,64 +157,64 @@ for OLD_JOB in $OLD_JOBS; do
 
   echo "finding and deleting compute instance-related resources..."
   INSTANCES=$(gcloud compute instances list --filter "name ~ $OLD_JOB" --format json)
-  echo "$INSTANCES" | format_for_deletion zone | xargs -r -L 1 gcloud compute instances delete --quiet
+  echo "$INSTANCES" | format_for_deletion zone | xargs -r -L 1 $DRY_RUN gcloud compute instances delete --quiet
 
   DISKS=$(gcloud compute disks list --format json --filter "labels: $OLD_JOB" --format json)
-  echo "$DISKS" | format_for_deletion zone | xargs -r -L 1 gcloud compute disks delete --quiet
+  echo "$DISKS" | format_for_deletion zone | xargs -r -L 1 $DRY_RUN gcloud compute disks delete --quiet
 
   FWD_RULES=$(gcloud compute forwarding-rules list --filter "name ~ $OLD_JOB" --format json)
-  echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 gcloud compute forwarding-rules delete --quiet
+  echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute forwarding-rules delete --quiet
 
   TCP_PROXIES=$(gcloud compute target-tcp-proxies list --filter "name ~ $OLD_JOB" --format json)
-  echo "$TCP_PROXIES" | format_for_deletion region | xargs -r -L 1 gcloud compute target-tcp-proxies delete --quiet
+  echo "$TCP_PROXIES" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute target-tcp-proxies delete --quiet
 
   BACKEND_SVC=$(gcloud compute backend-services list --filter "name ~ $OLD_JOB" --format json)
-  echo "$BACKEND_SVC" | format_for_deletion region | xargs -r -L 1 gcloud compute backend-services delete --quiet
+  echo "$BACKEND_SVC" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute backend-services delete --quiet
 
   INST_GROUPS=$(gcloud compute instance-groups list --filter "name ~ $OLD_JOB" --format json)
-  echo "$INST_GROUPS" |  format_for_deletion zone | xargs -r -L 1 gcloud compute instance-groups unmanaged delete --quiet
+  echo "$INST_GROUPS" |  format_for_deletion zone | xargs -r -L 1 $DRY_RUN gcloud compute instance-groups unmanaged delete --quiet
 
   echo "finding and deleting networking-related resources..."
   FW_RULES=$(gcloud compute firewall-rules list --format json --filter "network ~ $OLD_JOB" | jq -r '.[].name')
-  echo "$FW_RULES" | xargs -r gcloud compute firewall-rules delete --quiet
+  echo "$FW_RULES" | xargs -r $DRY_RUN gcloud compute firewall-rules delete --quiet
 
   echo "finding and deleting routers..."
   ROUTERS=$(gcloud compute routers list --filter "name ~ $OLD_JOB" --format json) 
-  echo "$ROUTERS" |  format_for_deletion region | xargs -r -L 1 gcloud compute routers delete --quiet
+  echo "$ROUTERS" |  format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute routers delete --quiet
 
   echo "finding and deleting forwarding rules..."
   FWD_RULES=$(gcloud compute forwarding-rules list --filter "name ~ $OLD_JOB" --format json)
-  echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 gcloud compute forwarding-rules delete --quiet
+  echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute forwarding-rules delete --quiet
 
   echo "finding and deleting compute addresses..."
   ADDRS=$(gcloud compute addresses list --filter "name ~ $OLD_JOB" --format json) 
-  echo "$ADDRS" | format_for_deletion region | xargs -r -L 1 gcloud compute addresses delete --quiet
+  echo "$ADDRS" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute addresses delete --quiet
 
   echo "finding and deleting compute network subnets..."
   SUBNETS=$(gcloud compute networks subnets list --filter "name ~ $OLD_JOB" --format json)
-  echo "$SUBNETS" | format_for_deletion region | xargs -r -L 1 gcloud compute networks subnets delete --quiet
+  echo "$SUBNETS" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute networks subnets delete --quiet
 
   echo "finding and deleting compute health checks..."
   HEALTH_CHECKS=$(gcloud compute health-checks list --filter "name ~ $OLD_JOB" --format json)
-  echo "$HEALTH_CHECKS" | format_for_deletion region | xargs -r -L 1  gcloud compute health-checks delete --quiet
+  echo "$HEALTH_CHECKS" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute health-checks delete --quiet
 
   echo "finding and deleting target pools..."
   TARGET_POOLS=$(gcloud compute target-pools list --filter "name ~ $OLD_JOB" --format json)
-  echo "$TARGET_POOLS" | format_for_deletion region  | xargs -r -L 1 gcloud compute target-pools delete --quiet
+  echo "$TARGET_POOLS" | format_for_deletion region  | xargs -r -L 1 $DRY_RUN gcloud compute target-pools delete --quiet
 
   echo "finding and deleting compute networks..."
   NETWORKS=$(gcloud compute networks list --filter "name ~ $OLD_JOB" --format json | jq -r '.[].name')
-  echo "$NETWORKS" | xargs -r gcloud compute networks delete --quiet
+  echo "$NETWORKS" | xargs -r $DRY_RUN gcloud compute networks delete --quiet
 
   echo "finding and deleting service accounts..."
   SVC_ACCTS=$(gcloud iam service-accounts list --filter "displayName ~ $OLD_JOB" --format json | jq -r '.[].email')
-  echo "$SVC_ACCTS" | xargs -r -L 1 gcloud iam service-accounts delete --quiet
+  echo "$SVC_ACCTS" | xargs -r -L 1 $DRY_RUN gcloud iam service-accounts delete --quiet
 
   echo "finding and deleting storage buckets..."
   BUCKETS=$(gcloud storage buckets list --filter "name ~ $OLD_JOB" --format json)
   OBJECTS=$(echo "$BUCKETS" | jq -r '.[].storage_url' | xargs -r gcloud storage objects list --format json)
-  echo "$OBJECTS" | jq -r '.[].storage_url' | xargs -r gcloud storage rm --quiet
-  echo "$BUCKETS" | jq -r '.[].storage_url' | xargs -r gcloud storage buckets delete --quiet
+  echo "$OBJECTS" | jq -r '.[].storage_url' | xargs -r $DRY_RUN gcloud storage rm --quiet
+  echo "$BUCKETS" | jq -r '.[].storage_url' | xargs -r $DRY_RUN gcloud storage buckets delete --quiet
 
   # Delete zones last because we are leveraging it early to get the entire list of jobs. 
   # If we deleted them first and there's an error later, we wouldn't be able to get back the whole list of jobs
@@ -216,8 +222,8 @@ for OLD_JOB in $OLD_JOBS; do
   DNS_ZONE=$(gcloud dns managed-zones list --filter "name ~ $OLD_JOB" --format json | jq -r '.[].name')
   if [ -n "$DNS_ZONE" ] ; then
     DNS_RECORDS=$(gcloud dns record-sets list --zone "$DNS_ZONE" --format json)
-    echo "$DNS_RECORDS" | jq -r '.[] | select(.type=="A") | .name' | xargs -r -L 1 gcloud dns record-sets delete --zone "$DNS_ZONE" --type A 
-    gcloud dns managed-zones delete "$DNS_ZONE"
+    echo "$DNS_RECORDS" | jq -r '.[] | select(.type=="A") | .name' | xargs -r -L 1 $DRY_RUN gcloud dns record-sets delete --zone "$DNS_ZONE" --type A 
+    $DRY_RUN gcloud dns managed-zones delete "$DNS_ZONE"
   fi
 
   echo "Cleanup of $OLD_JOB complete!"
