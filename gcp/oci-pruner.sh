@@ -172,24 +172,31 @@ for OLD_JOB in $OLD_JOBS; do
   FW_RULES=$(gcloud compute firewall-rules list --format json --filter "network ~ $OLD_JOB" | jq -r '.[].name')
   echo "$FW_RULES" | xargs -r gcloud compute firewall-rules delete --quiet
 
+  echo "finding and deleting routers..."
   ROUTERS=$(gcloud compute routers list --filter "name ~ $OLD_JOB" --format json) 
   echo "$ROUTERS" |  format_for_deletion region | xargs -r -L 1 gcloud compute routers delete --quiet
 
+  echo "finding and deleting forwarding rules..."
   FWD_RULES=$(gcloud compute forwarding-rules list --filter "name ~ $OLD_JOB" --format json)
   echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 gcloud compute forwarding-rules delete --quiet
 
+  echo "finding and deleting compute addresses..."
   ADDRS=$(gcloud compute addresses list --filter "name ~ $OLD_JOB" --format json) 
   echo "$ADDRS" | format_for_deletion region | xargs -r -L 1 gcloud compute addresses delete --quiet
 
+  echo "finding and deleting compute network subnets..."
   SUBNETS=$(gcloud compute networks subnets list --filter "name ~ $OLD_JOB" --format json)
   echo "$SUBNETS" | format_for_deletion region | xargs -r -L 1 gcloud compute networks subnets delete --quiet
 
+  echo "finding and deleting compute health checks..."
   HEALTH_CHECKS=$(gcloud compute health-checks list --filter "name ~ $OLD_JOB" --format json)
-  echo "$HEALTH_CHECKS" | format_for_deletion region | xargs -r gcloud compute health-checks delete --quiet
+  echo "$HEALTH_CHECKS" | format_for_deletion region | xargs -r -L 1  gcloud compute health-checks delete --quiet
 
+  echo "finding and deleting target pools..."
   TARGET_POOLS=$(gcloud compute target-pools list --filter "name ~ $OLD_JOB" --format json)
   echo "$TARGET_POOLS" | format_for_deletion region  | xargs -r -L 1 gcloud compute target-pools delete --quiet
 
+  echo "finding and deleting compute networks..."
   NETWORKS=$(gcloud compute networks list --filter "name ~ $OLD_JOB" --format json | jq -r '.[].name')
   echo "$NETWORKS" | xargs -r gcloud compute networks delete --quiet
 
