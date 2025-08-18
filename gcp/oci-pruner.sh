@@ -186,6 +186,10 @@ for OLD_JOB in $OLD_JOBS; do
   FWD_RULES=$(gcloud compute forwarding-rules list --filter "name ~ $OLD_JOB" --format json)
   echo "$FWD_RULES" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute forwarding-rules delete --quiet
 
+  echo "finding and deleting routes..."
+  ROUTES=$(gcloud compute routes list --filter "network:$OLD_JOB-network" --format json | jq -r '.[].name')
+  echo "$ROUTES" | xargs -r -L 1 $DRY_RUN gcloud compute routes delete --quiet
+
   echo "finding and deleting compute addresses..."
   ADDRS=$(gcloud compute addresses list --filter "name ~ $OLD_JOB" --format json) 
   echo "$ADDRS" | format_for_deletion region | xargs -r -L 1 $DRY_RUN gcloud compute addresses delete --quiet
