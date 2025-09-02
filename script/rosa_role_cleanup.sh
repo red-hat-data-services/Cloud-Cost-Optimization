@@ -24,9 +24,15 @@ while IFS= read -r CLUSTER_NAME; do
     echo "confirmed $CLUSTER_NAME does not exist"; 
 
     # find the cluster and unique identifier associated with this cluster name and add to list of clusters to delete 
-    cat roles.json | jq -r --arg N $CLUSTER_NAME '.[] | select(test($N + "-....-" + "openshift-cluster-csi-drivers"))' | sed 's/-openshift-cluster.*//' \
-      >> clusters-with-roles-to-delete.txt
-    NUM_CLUSTERS=$(($NUM_CLUSTERS + 1))
+    CLUSTER_NAME_PREFIX=$(cat roles.json | jq -r --arg N $CLUSTER_NAME '.[] | select(test("^" + $N + "-....-" + "openshift-cluster-csi-drivers"))' | sed 's/-openshift-cluster.*//')
+    if [ -n "$CLUSTER_NAME_PREFIX" ]; then
+      echo "adding $CLUSTER_NAME_PREFIX to the list of cluster prefixes to delete"
+      echo "$CLUSTER_NAME_PREFIX" >> clusters-with-roles-to-delete.txt
+      NUM_CLUSTERS=$(($NUM_CLUSTERS + 1))
+    else
+      echo "Was not able to find any cluster name prefixes for $CLUSTER_NAME, skipping.."
+    fi
+
   else
     echo "skipping $CLUSTER_NAME because it appears to exist based on running the command 'rosa describe cluster -c $CLUSTER_NAME' "
   fi
