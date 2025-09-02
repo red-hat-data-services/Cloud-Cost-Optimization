@@ -5,7 +5,7 @@ on:
     inputs:
       override:
         type: choice
-        description: Bypass the anomaly check that sees if there are more than 20 clusters that are marked as nonexistent
+        description: Bypass the anomaly check that sees if there are more than 50 clusters that are marked as nonexistent
         default: false
         options:
           - true
