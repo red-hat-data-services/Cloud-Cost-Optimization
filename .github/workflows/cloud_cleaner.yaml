@@ -37,4 +37,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
           # python src/cloud_cleaner.py
-          python3 src/cleanup_openshift_ci_on_aws.py
+          python3 -u src/cleanup_openshift_ci_on_aws.py
