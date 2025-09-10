@@ -286,7 +286,7 @@ class AWSResourceCleaner:
             # Wait for NAT gateways to be deleted
             if nat_gateways_to_delete and not dry_run:
                 print("  Waiting for NAT gateways to be deleted...")
-                time.sleep(60)
+                time.sleep(10)
                 
         except Exception as e:
             print(f"  Error deleting NAT gateways: {e}")
@@ -373,7 +373,7 @@ class AWSResourceCleaner:
                                 print(f"    Could not remove egress rules from {sg['GroupId']}: {e}")
                     if has_rules_to_delete: 
                         print("  Waiting for security group rules to be deleted...")
-                        time.sleep(30)
+                        time.sleep(10)
             # Second pass: Delete the security groups
             for sg in security_groups:
                 if self._validate_resource_build_id(
@@ -515,7 +515,7 @@ class AWSResourceCleaner:
                 
             if has_address_to_delete:
                 print("  Waiting for elastic ip to be fully cleaned up...")
-                time.sleep(30)
+                time.sleep(10)
         except Exception as e:
             print(f"  Error releasing Elastic IPs: {e}")
     
@@ -641,7 +641,7 @@ class AWSResourceCleaner:
                 if not dry_run:
                     # Wait a bit for resources to be fully cleaned up
                     print("  Waiting for resources to be fully cleaned up...")
-                    time.sleep(30)
+                    time.sleep(10)
                 
                 # Delete the VPC
                 self.delete_vpc(vpc_id, dry_run)
