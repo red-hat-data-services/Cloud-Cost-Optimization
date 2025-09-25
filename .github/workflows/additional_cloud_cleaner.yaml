@@ -31,15 +31,17 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
+          if [[ -z "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=false; fi
+          echo "dry_run=${DRY_RUN}"
           # python src/cloud_cleaner.py
-          python3 -u src/iam_role_cleaner.py
+          python3 -u src/iam_role_cleaner.py --dry-run ${DRY_RUN}
       - name: Cleanup Hosted Zones
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; else DRY_RUN=true; fi
-          echo "dry_run=${{ env.dry_run }}"
+          if [[ -z "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=false; fi
+          echo "dry_run=${DRY_RUN}"
           cd script
           chmod +x clean-hosted-zones.sh
-          ./clean-hosted-zones.sh
+          DRY_RUN=${DRY_RUN} ./clean-hosted-zones.sh
