@@ -1,0 +1,45 @@
+name: Cleanup Cloud Resources Daily
+run-name: Cleanup Cloud Resource Daily
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        type: boolean
+        description: 'Dry Run'
+        required: true
+        default: 'true'
+  schedule:
+    - cron: '0 * * * *'
+
+env:
+  DRY_RUN: true
+jobs:
+  cloud-cleaner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Cleanup IAM Roles
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+        run: |
+          # python src/cloud_cleaner.py
+          python3 -u src/iam_role_cleaner.py
+      - name: Cleanup Hosted Zones
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+        run: |
+          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; else DRY_RUN=true; fi
+          echo "dry_run=${{ env.dry_run }}"
+          cd script
+          chmod +x clean-hosted-zones.sh
+          ./clean-hosted-zones.sh
