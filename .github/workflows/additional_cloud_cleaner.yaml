@@ -12,7 +12,7 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  DRY_RUN: true
+  DRY_RUN: false
 jobs:
   cloud-cleaner:
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          if [[ -z "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=false; fi
+          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; fi
           echo "dry_run=${DRY_RUN}"
           # python src/cloud_cleaner.py
           python3 -u src/iam_role_cleaner.py --dry-run ${DRY_RUN}
@@ -40,7 +40,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
         run: |
-          if [[ -z "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=false; fi
+          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; fi
           echo "dry_run=${DRY_RUN}"
           cd script
           chmod +x clean-hosted-zones.sh
