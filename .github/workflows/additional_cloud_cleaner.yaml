@@ -1,5 +1,5 @@
-name: Cleanup Cloud Resources
-run-name: Cleanup Cloud Resource
+name: Cleanup Cloud Resources Daily
+run-name: Cleanup Cloud Resource Daily
 on:
   workflow_dispatch:
     inputs:
