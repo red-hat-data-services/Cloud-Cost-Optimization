@@ -9,7 +9,7 @@ on:
         required: true
         default: 'true'
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 0 * * *'
 
 env:
   DRY_RUN: true
