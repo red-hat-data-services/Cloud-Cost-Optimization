@@ -17,7 +17,7 @@ class AWSResourceCleaner:
         try:
             response = self.ec2.describe_vpcs()
             expired_vpcs = []
-            cutoff_date = datetime.now() - timedelta(days=1)
+            cutoff_date = datetime.now() - timedelta(hours=5)
             
             for vpc in response['Vpcs']:
                 tags = {tag['Key']: tag['Value'] for tag in vpc.get('Tags', [])}
@@ -48,7 +48,7 @@ class AWSResourceCleaner:
         try:
             response = self.iam.list_open_id_connect_providers()
             expired_providers = []
-            cutoff_date = datetime.now() - timedelta(days=1)
+            cutoff_date = datetime.now() - timedelta(hours=5)
             
             for provider in response['OpenIDConnectProviderList']:
                 arn = provider['Arn']
