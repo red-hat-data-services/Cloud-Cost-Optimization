@@ -147,10 +147,10 @@ class IAMRoleCleaner:
             print(f"\n=== EXECUTING DELETION - {len(expired_roles)} roles will be deleted ===")
 
             # Ask for confirmation
-            response = input(f"Are you sure you want to delete {len(expired_roles)} IAM roles? (yes/no): ")
-            if response.lower() != 'yes':
-                print("Deletion cancelled by user.")
-                return
+            # response = input(f"Are you sure you want to delete {len(expired_roles)} IAM roles? (yes/no): ")
+            # if response.lower() != 'yes':
+            #     print("Deletion cancelled by user.")
+            #     return
 
             success_count = 0
             for role in expired_roles:
