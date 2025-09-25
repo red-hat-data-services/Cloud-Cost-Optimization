@@ -81,7 +81,9 @@ class IAMRoleCleaner:
             expiration_date_str = role['Tags'].get('expirationDate')
 
             try:
-                expiration_date = datetime.strptime(expiration_date_str, '%Y-%m-%d').date()
+                # Parse ISO format with timezone: "2025-09-05T01:06+00:00"
+                expiration_datetime = datetime.fromisoformat(expiration_date_str.replace('Z', '+00:00'))
+                expiration_date = expiration_datetime.date()
                 days_expired = (current_date - expiration_date).days
 
                 if days_expired >= expiration_days:
@@ -89,7 +91,7 @@ class IAMRoleCleaner:
                     expired_roles.append(role)
                     print(f"Role {role['RoleName']} expired {days_expired} days ago")
 
-            except ValueError:
+            except (ValueError, TypeError):
                 print(f"Warning: Invalid expiration date format for role {role['RoleName']}: {expiration_date_str}")
                 continue
 
