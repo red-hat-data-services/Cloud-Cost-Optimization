@@ -12,6 +12,7 @@ pip install boto3
 import argparse
 import json
 import sys
+import time
 from datetime import datetime, timedelta
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -56,7 +57,7 @@ class ElasticIPCleaner:
 
         for eip in elastic_ips:
             tags = self.get_elastic_ip_tags(eip)
-
+            time.sleep(0.2)
             # Check if Elastic IP has both required tags
             has_required_tags = all(tag in tags for tag in required_tags)
 
