@@ -26,24 +26,24 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-#      - name: Cleanup IAM Roles
-#        env:
-#          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
-#        run: |
-#          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; fi
-#          echo "dry_run=${DRY_RUN}"
-#          python3 -u src/iam_role_cleaner.py --dry-run ${DRY_RUN}
-#      - name: Cleanup Hosted Zones
-#        env:
-#          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
-#        run: |
-#          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; fi
-#          echo "dry_run=${DRY_RUN}"
-#          cd script
-#          chmod +x clean-hosted-zones.sh
-#          DRY_RUN=${DRY_RUN} ./clean-hosted-zones.sh
+      - name: Cleanup IAM Roles
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+        run: |
+          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; fi
+          echo "dry_run=${DRY_RUN}"
+          python3 -u src/iam_role_cleaner.py --dry-run ${DRY_RUN}
+      - name: Cleanup Hosted Zones
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUD_SECRET }}
+        run: |
+          if [[ -n "${{ github.event.inputs.dry_run }}" ]]; then DRY_RUN=${{ github.event.inputs.dry_run }}; fi
+          echo "dry_run=${DRY_RUN}"
+          cd script
+          chmod +x clean-hosted-zones.sh
+          DRY_RUN=${DRY_RUN} ./clean-hosted-zones.sh
       - name: Cleanup Instance Profiles
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUD_KEY }}
