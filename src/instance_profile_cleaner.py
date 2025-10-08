@@ -48,9 +48,9 @@ class InstanceProfileCleaner:
     def get_instance_profile_tags(self, instance_profile_name):
         """Get tags for a specific instance profile."""
         try:
+            time.sleep(1)
             response = self.iam_client.list_instance_profile_tags(InstanceProfileName=instance_profile_name)
             return {tag['Key']: tag['Value'] for tag in response['Tags']}
-            time.sleep(0.2)
         except ClientError as e:
             print(f"Warning: Could not fetch tags for instance profile {instance_profile_name}: {e}")
             return {}

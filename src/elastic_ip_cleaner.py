@@ -47,6 +47,7 @@ class ElasticIPCleaner:
 
     def get_elastic_ip_tags(self, eip):
         """Get tags for a specific Elastic IP."""
+        time.sleep(1)
         tags = eip.get('Tags', [])
         return {tag['Key']: tag['Value'] for tag in tags}
 
@@ -57,7 +58,6 @@ class ElasticIPCleaner:
 
         for eip in elastic_ips:
             tags = self.get_elastic_ip_tags(eip)
-            time.sleep(0.2)
             # Check if Elastic IP has both required tags
             has_required_tags = all(tag in tags for tag in required_tags)
 
