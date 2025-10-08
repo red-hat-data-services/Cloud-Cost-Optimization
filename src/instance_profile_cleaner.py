@@ -12,6 +12,7 @@ pip install boto3
 import argparse
 import json
 import sys
+import time
 from datetime import datetime, timedelta
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -49,6 +50,7 @@ class InstanceProfileCleaner:
         try:
             response = self.iam_client.list_instance_profile_tags(InstanceProfileName=instance_profile_name)
             return {tag['Key']: tag['Value'] for tag in response['Tags']}
+            time.sleep(0.2)
         except ClientError as e:
             print(f"Warning: Could not fetch tags for instance profile {instance_profile_name}: {e}")
             return {}
