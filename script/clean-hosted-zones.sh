@@ -3,7 +3,7 @@
 set -euo pipefail
 
 DOMAIN_PATTERNS=("openshift-ci.odhdev.com" "openshift-ci-aws.rhaiseng.com")
-REGEX_PATTERNS=("^[0-9a-z]{21}\.hypershift\.local$")
+REGEX_PATTERNS=("^[0-9a-z]{20}\.hypershift\.local$")
 DRY_RUN=${DRY_RUN:-true}
 ZONE_TYPE=${ZONE_TYPE:-"all"}  # all, public, private
 
