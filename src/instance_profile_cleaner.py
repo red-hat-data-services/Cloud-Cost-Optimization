@@ -100,8 +100,38 @@ class InstanceProfileCleaner:
         print(f"Found {len(expired_profiles)} instance profiles expired by {expiration_days}+ days")
         return expired_profiles
 
+    def delete_iam_role(self, role_name):
+        """Delete an IAM role and its associated policies."""
+        try:
+            # First, detach all managed policies
+            response = self.iam_client.list_attached_role_policies(RoleName=role_name)
+            for policy in response['AttachedPolicies']:
+                self.iam_client.detach_role_policy(
+                    RoleName=role_name,
+                    PolicyArn=policy['PolicyArn']
+                )
+                print(f"    Detached policy {policy['PolicyName']} from role {role_name}")
+
+            # Delete all inline policies
+            response = self.iam_client.list_role_policies(RoleName=role_name)
+            for policy_name in response['PolicyNames']:
+                self.iam_client.delete_role_policy(
+                    RoleName=role_name,
+                    PolicyName=policy_name
+                )
+                print(f"    Deleted inline policy {policy_name} from role {role_name}")
+
+            # Finally, delete the role
+            self.iam_client.delete_role(RoleName=role_name)
+            print(f"    Successfully deleted role: {role_name}")
+            return True
+
+        except ClientError as e:
+            print(f"    Error deleting role {role_name}: {e}")
+            return False
+
     def delete_instance_profile(self, profile_name, roles):
-        """Delete an instance profile and remove role associations."""
+        """Delete an instance profile, remove role associations, and delete associated roles."""
         try:
             # First, remove all roles from the instance profile
             for role in roles:
@@ -112,9 +142,16 @@ class InstanceProfileCleaner:
                 )
                 print(f"  Removed role {role_name} from instance profile {profile_name}")
 
-            # Finally, delete the instance profile
+            # Delete the instance profile
             self.iam_client.delete_instance_profile(InstanceProfileName=profile_name)
             print(f"  Successfully deleted instance profile: {profile_name}")
+
+            # Now delete the associated roles
+            for role in roles:
+                role_name = role['RoleName']
+                print(f"  Deleting associated IAM role: {role_name}")
+                self.delete_iam_role(role_name)
+
             return True
 
         except ClientError as e:
