@@ -3,6 +3,7 @@
 set -euo pipefail
 
 DOMAIN_PATTERNS=("openshift-ci.odhdev.com" "openshift-ci-aws.rhaiseng.com")
+REGEX_PATTERNS=("^[0-9a-z]{21}\.hypershift\.local$")
 DRY_RUN=${DRY_RUN:-true}
 ZONE_TYPE=${ZONE_TYPE:-"all"}  # all, public, private
 
@@ -77,6 +78,7 @@ delete_hosted_zone() {
 main() {
     log "Starting AWS hosted zone cleanup"
     log "Domain patterns: ${DOMAIN_PATTERNS[*]}"
+    log "Regex patterns: ${REGEX_PATTERNS[*]}"
     log "Zone type filter: $ZONE_TYPE"
     log "DRY RUN mode: $DRY_RUN"
 
@@ -126,13 +128,28 @@ main() {
         if [[ "$zone_name" =~ ^openshift ]]; then
             log "Skipping zone (starts with 'openshift'): $zone_name"
         else
+            matched=false
+
+            # Check string patterns
             for pattern in "${DOMAIN_PATTERNS[@]}"; do
                 if [[ "$zone_name" == *"$pattern"* ]]; then
-                    log "Found matching zone: $zone_name (ID: $zone_id, type: $zone_type)"
+                    log "Found matching zone (string pattern): $zone_name (ID: $zone_id, type: $zone_type)"
                     zones_to_delete+=("$zone_name|$zone_id|$zone_type")
+                    matched=true
                     break
                 fi
             done
+
+            # Check regex patterns if not already matched
+            if [[ "$matched" == false ]]; then
+                for regex in "${REGEX_PATTERNS[@]}"; do
+                    if [[ "$zone_name" =~ $regex ]]; then
+                        log "Found matching zone (regex pattern): $zone_name (ID: $zone_id, type: $zone_type)"
+                        zones_to_delete+=("$zone_name|$zone_id|$zone_type")
+                        break
+                    fi
+                done
+            fi
         fi
     done
 
