@@ -222,8 +222,8 @@ def get_instances_for_region(region, current_state):
     ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=1000)
     ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
     ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
-    ec2_map = {list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags']))[0]['Value']: instance for instance in
-               ec2_map if list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags']))}
+    ec2_map = {list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags'] if 'Tags' in instance else []))[0]['Value']: instance for instance in
+               ec2_map if list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags'] if 'Tags' in instance else []))}
     print(region, len(ec2_map))
     return ec2_map
 
