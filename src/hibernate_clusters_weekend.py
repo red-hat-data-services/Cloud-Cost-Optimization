@@ -167,12 +167,15 @@ def main():
     print('cluster to hibernate')
     for cluster in clusters_to_hibernate:
         print(cluster.name, cluster.type)
+    DO_NOT_HIBERNATE_LIST = ['vteam-uat', 'vteam-stage']
 
     hibernated_clusters = []
     for cluster in clusters_to_hibernate:
         print('starting with', cluster.name, cluster.type)
         outcome = True
-        if cluster.hcp == "false":
+        if cluster.name in DO_NOT_HIBERNATE_LIST:
+            continue
+        elif cluster.hcp == "false":
             if cluster.type == 'ocp':
                 hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
                 print('hibernating IPI cluster - ', cluster.name)
