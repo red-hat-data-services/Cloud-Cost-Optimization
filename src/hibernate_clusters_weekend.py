@@ -174,6 +174,7 @@ def main():
         print('starting with', cluster.name, cluster.type)
         outcome = True
         if cluster.name in DO_NOT_HIBERNATE_LIST:
+            print(f'skipping the cluster {cluster.name}')
             continue
         elif cluster.hcp == "false":
             if cluster.type == 'ocp':
