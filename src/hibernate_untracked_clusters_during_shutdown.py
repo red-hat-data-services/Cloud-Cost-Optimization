@@ -205,10 +205,21 @@ def main():
     for ocm_account in ocm_accounts:
         get_all_cluster_details(ocm_account, clusters)
 
+    clusters_to_hibernate = [cluster for cluster in clusters if cluster.cloud_provider == 'aws' and cluster.status == 'ready']
+    print('cluster to hibernate')
+    for cluster in clusters_to_hibernate:
+        print(cluster.name, cluster.type)
+    DO_NOT_HIBERNATE_LIST = ['vteam-uat', 'vteam-stage']
+
+
     smartsheet_data = get_clusters_from_smartsheet()
     hibernated_clusters = []
-    for cluster in clusters:
+    for cluster in clusters_to_hibernate:
         if cluster.id in smartsheet_data and not smartsheet_data[cluster.id][0] and smartsheet_data[cluster.id][1] == 'ready':
+            print('starting with', cluster.name, cluster.type)
+            if cluster.name in DO_NOT_HIBERNATE_LIST:
+                print(f'skipping the cluster {cluster.name}')
+                continue
             if cluster.hcp == "false":
                 if cluster.type == 'ocp':
                     hibernate_ipi_cluster(cluster, ec2_instances[cluster.region])
