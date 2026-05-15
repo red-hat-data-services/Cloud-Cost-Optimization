@@ -625,6 +625,11 @@ def main():
         print("Error: provide resource IDs or use --scan")
         sys.exit(1)
 
+    json_mode = args.output == "json"
+    if json_mode:
+        real_stdout = sys.stdout
+        sys.stdout = sys.stderr
+
     tracer = ResourceTracer(
         region=args.region,
         ocm_accounts=args.ocm_accounts.split(","),
@@ -640,7 +645,8 @@ def main():
     tracer.classify_prunability(traces, age_threshold=args.age_threshold)
     traces = tracer.filter_traces(traces, args.filter)
 
-    if args.output == "json":
+    if json_mode:
+        sys.stdout = real_stdout
         print(tracer.format_json_report(traces))
     else:
         print(tracer.format_text_report(traces))
