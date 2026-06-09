@@ -2,12 +2,13 @@
 AWS Resource Tracer
 
 Read-only inspection tool that traces AWS resources back to their OpenShift
-clusters and identifies who provisioned them. Currently supports EC2 instances.
+clusters and identifies who provisioned them. Supports EC2 instances and
+NAT gateways.
 
 Usage:
   python src/resource_tracer.py i-01d154018d489351c --region us-east-1
   python src/resource_tracer.py --scan --region us-east-1
-  python src/resource_tracer.py --scan --region us-west-2 --skip-ocm
+  python src/resource_tracer.py --scan --region us-east-1 --resource-type nat-gateway
 """
 
 import argparse
@@ -21,6 +22,17 @@ from dataclasses import dataclass, field, asdict
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
+
+
+RESOURCE_TYPE_LABELS = {
+    "ec2": "EC2 Instances",
+    "nat-gateway": "NAT Gateways",
+}
+
+DEFAULT_STATES = {
+    "ec2": "running,stopped",
+    "nat-gateway": "available,failed",
+}
 
 
 @dataclass
@@ -47,7 +59,7 @@ class ResourceTrace:
     tags: dict = field(default_factory=dict)
 
 
-# ── EC2 fetching ──────────────────────────────────────────────
+# ── Fetching ─────────────────────────────────────────────────
 
 def fetch_ec2_instances(ec2_client, instance_ids=None, states=None):
     instances = []
@@ -77,10 +89,33 @@ def fetch_ec2_instances(ec2_client, instance_ids=None, states=None):
     return instances
 
 
+def fetch_nat_gateways(ec2_client, nat_gateway_ids=None, states=None):
+    gateways = []
+    paginator = ec2_client.get_paginator("describe_nat_gateways")
+
+    try:
+        if nat_gateway_ids:
+            pages = paginator.paginate(NatGatewayIds=nat_gateway_ids)
+        elif states:
+            pages = paginator.paginate(
+                Filters=[{"Name": "state", "Values": states}]
+            )
+        else:
+            pages = paginator.paginate()
+
+        for page in pages:
+            gateways.extend(page["NatGateways"])
+
+    except ClientError as e:
+        print(f"Error fetching NAT gateways: {e}")
+
+    return gateways
+
+
 # ── Tag helpers ───────────────────────────────────────────────
 
-def _tags_to_dict(instance):
-    return {t["Key"]: t["Value"] for t in instance.get("Tags", [])}
+def _tags_to_dict(resource):
+    return {t["Key"]: t["Value"] for t in resource.get("Tags", [])}
 
 
 def _get_kubernetes_cluster_name(tags):
@@ -135,22 +170,9 @@ def _age_days(launch_time_str, now):
 
 # ── Classification ────────────────────────────────────────────
 
-def classify_ec2_instance(instance):
-    tags = _tags_to_dict(instance)
+def _classify_by_tags(tags, trace):
     k8s_cluster = _get_kubernetes_cluster_name(tags)
     exp_dt, is_expired = _parse_expiration(tags)
-    launch_time = instance.get("LaunchTime")
-
-    trace = ResourceTrace(
-        resource_id=instance["InstanceId"],
-        resource_type="ec2",
-        instance_type=instance.get("InstanceType", ""),
-        state=instance.get("State", {}).get("Name", ""),
-        name=tags.get("Name", ""),
-        launch_time=launch_time.isoformat() if launch_time else "",
-        age_str=_format_age(launch_time),
-        tags=tags,
-    )
 
     if exp_dt:
         trace.expiration_date = exp_dt.isoformat()
@@ -194,6 +216,39 @@ def classify_ec2_instance(instance):
     # 5. Unknown
     trace.cluster_type = "unknown"
     return trace
+
+
+def classify_ec2_instance(instance):
+    tags = _tags_to_dict(instance)
+    launch_time = instance.get("LaunchTime")
+
+    trace = ResourceTrace(
+        resource_id=instance["InstanceId"],
+        resource_type="ec2",
+        instance_type=instance.get("InstanceType", ""),
+        state=instance.get("State", {}).get("Name", ""),
+        name=tags.get("Name", ""),
+        launch_time=launch_time.isoformat() if launch_time else "",
+        age_str=_format_age(launch_time),
+        tags=tags,
+    )
+    return _classify_by_tags(tags, trace)
+
+
+def classify_nat_gateway(nat_gw):
+    tags = _tags_to_dict(nat_gw)
+    create_time = nat_gw.get("CreateTime")
+
+    trace = ResourceTrace(
+        resource_id=nat_gw["NatGatewayId"],
+        resource_type="nat-gateway",
+        state=nat_gw.get("State", ""),
+        name=tags.get("Name", ""),
+        launch_time=create_time.isoformat() if create_time else "",
+        age_str=_format_age(create_time),
+        tags=tags,
+    )
+    return _classify_by_tags(tags, trace)
 
 
 # ── OCM integration ──────────────────────────────────────────
@@ -396,12 +451,13 @@ def group_by_cluster(traces):
 
 # ── Text report ───────────────────────────────────────────────
 
-def format_text_report(traces, region):
+def format_text_report(traces, region, resource_type="ec2"):
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    rt_label = RESOURCE_TYPE_LABELS.get(resource_type, resource_type)
     lines = []
-    lines.append(f"AWS Resource Tracer — {region} (EC2 Instances)")
+    lines.append(f"AWS Resource Tracer — {region} ({rt_label})")
     lines.append("=" * 60)
-    lines.append(f"Scanned: {len(traces)} instances | {now_str}")
+    lines.append(f"Scanned: {len(traces)} resources | {now_str}")
     lines.append("")
 
     grouped = group_by_cluster(traces)
@@ -440,13 +496,13 @@ def format_text_report(traces, region):
 
         lines.append("")
         lines.append(
-            f"   {'INSTANCE':<24} {'TYPE':<14} {'STATE':<10} {'LAUNCHED':<13} {'AGE':<8} {'NAME'}"
+            f"   {'RESOURCE':<24} {'TYPE':<14} {'STATE':<10} {'CREATED':<13} {'AGE':<8} {'NAME'}"
         )
         for t in sorted(group, key=lambda x: x.resource_id):
-            launched = t.launch_time[:10] if t.launch_time else ""
+            created = t.launch_time[:10] if t.launch_time else ""
             name_col = t.name if cluster_type == "unknown" else ""
             lines.append(
-                f"   {t.resource_id:<24} {t.instance_type:<14} {t.state:<10} {launched:<13} {t.age_str:<8} {name_col}"
+                f"   {t.resource_id:<24} {t.instance_type:<14} {t.state:<10} {created:<13} {t.age_str:<8} {name_col}"
             )
         lines.append("")
 
@@ -495,26 +551,26 @@ def _type_label(cluster_type):
 def _format_summary(traces, grouped):
     lines = ["=" * 60, "Summary", "=" * 60]
 
-    type_counts = defaultdict(lambda: {"instances": 0, "clusters": set(), "expired_clusters": set()})
+    type_counts = defaultdict(lambda: {"resources": 0, "clusters": set(), "expired_clusters": set()})
     for (cluster_name, cluster_type), group in grouped:
         tc = type_counts[cluster_type]
-        tc["instances"] += len(group)
+        tc["resources"] += len(group)
         tc["clusters"].add(cluster_name)
         if any(t.is_expired for t in group):
             tc["expired_clusters"].add(cluster_name)
 
-    lines.append(f"Total: {len(traces)} instances, {sum(len(tc['clusters']) for tc in type_counts.values())} clusters")
+    lines.append(f"Total: {len(traces)} resources, {sum(len(tc['clusters']) for tc in type_counts.values())} clusters")
     lines.append("")
 
     for ct in ["rosa-hcp", "rosa-classic", "osd", "osd-hcp", "ipi", "prow-ci", "unknown"]:
         tc = type_counts.get(ct)
-        if not tc or tc["instances"] == 0:
+        if not tc or tc["resources"] == 0:
             continue
         expired_note = ""
         if tc["expired_clusters"]:
             expired_note = f", {len(tc['expired_clusters'])} expired"
         lines.append(
-            f"  {_type_label(ct):<15} {tc['instances']:>4} instances  "
+            f"  {_type_label(ct):<15} {tc['resources']:>4} resources  "
             f"({len(tc['clusters'])} clusters{expired_note})"
         )
 
@@ -524,11 +580,11 @@ def _format_summary(traces, grouped):
         lines.append("")
         lines.append("Prunability:")
         if prunable_count:
-            lines.append(f"  Prunable:        {prunable_count:>4} instances")
+            lines.append(f"  Prunable:        {prunable_count:>4} resources")
         if questionable_count:
-            lines.append(f"  Questionable:    {questionable_count:>4} instances")
+            lines.append(f"  Questionable:    {questionable_count:>4} resources")
         not_prunable = len(traces) - prunable_count - questionable_count
-        lines.append(f"  Not prunable:    {not_prunable:>4} instances")
+        lines.append(f"  Not prunable:    {not_prunable:>4} resources")
 
     return "\n".join(lines)
 
@@ -541,14 +597,14 @@ def parse_args():
     )
     parser.add_argument(
         "resource_ids", nargs="*",
-        help="Resource IDs to trace (e.g., EC2 instance IDs)"
+        help="Resource IDs to trace (e.g., i-xxx for EC2, nat-xxx for NAT gateways)"
     )
     parser.add_argument(
         "--region", default="us-east-1",
         help="AWS region (default: us-east-1)"
     )
     parser.add_argument(
-        "--resource-type", default="ec2", choices=["ec2"],
+        "--resource-type", default="ec2", choices=["ec2", "nat-gateway"],
         help="Resource type to trace (default: ec2)"
     )
     parser.add_argument(
@@ -556,8 +612,8 @@ def parse_args():
         help="Scan all resources of the given type in the region"
     )
     parser.add_argument(
-        "--states", default="running,stopped",
-        help="Comma-separated instance states for --scan (default: running,stopped)"
+        "--states", default=None,
+        help="Comma-separated states for --scan (default: running,stopped for EC2; available,failed for NAT gateways)"
     )
     parser.add_argument(
         "--ocm-accounts", default="PROD,STAGE",
@@ -603,16 +659,26 @@ def main():
 
     skip_ocm = args.skip_ocm
     ocm_accounts = args.ocm_accounts.split(",")
+    resource_type = args.resource_type
+    state_list = (args.states or DEFAULT_STATES[resource_type]).split(",")
 
-    if args.scan:
-        state_list = args.states.split(",")
-        print(f"Scanning {args.region} for instances in states: {', '.join(state_list)}")
-        instances = fetch_ec2_instances(ec2_client, states=state_list)
-    else:
-        instances = fetch_ec2_instances(ec2_client, instance_ids=args.resource_ids)
+    if resource_type == "ec2":
+        if args.scan:
+            print(f"Scanning {args.region} for EC2 instances in states: {', '.join(state_list)}")
+            resources = fetch_ec2_instances(ec2_client, states=state_list)
+        else:
+            resources = fetch_ec2_instances(ec2_client, instance_ids=args.resource_ids)
+        print(f"Found {len(resources)} instances")
+        traces = [classify_ec2_instance(r) for r in resources]
 
-    print(f"Found {len(instances)} instances")
-    traces = [classify_ec2_instance(i) for i in instances]
+    elif resource_type == "nat-gateway":
+        if args.scan:
+            print(f"Scanning {args.region} for NAT gateways in states: {', '.join(state_list)}")
+            resources = fetch_nat_gateways(ec2_client, states=state_list)
+        else:
+            resources = fetch_nat_gateways(ec2_client, nat_gateway_ids=args.resource_ids)
+        print(f"Found {len(resources)} NAT gateways")
+        traces = [classify_nat_gateway(r) for r in resources]
 
     ocm_clusters = {}
     owner_cache = {}
@@ -629,7 +695,7 @@ def main():
         sys.stdout = real_stdout
         print(format_json_report(traces))
     else:
-        print(format_text_report(traces, args.region))
+        print(format_text_report(traces, args.region, resource_type))
 
 
 if __name__ == "__main__":
