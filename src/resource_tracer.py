@@ -492,9 +492,13 @@ def group_by_cluster(traces):
 
 # ── Text report ───────────────────────────────────────────────
 
-def format_text_report(traces, region, resource_type="ec2"):
+def format_text_report(traces, region, resource_types=None):
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    rt_label = RESOURCE_TYPE_LABELS.get(resource_type, resource_type)
+    if resource_types is None:
+        resource_types = list(RESOURCE_TYPE_LABELS.keys())
+    if isinstance(resource_types, str):
+        resource_types = [resource_types]
+    rt_label = ", ".join(RESOURCE_TYPE_LABELS.get(rt, rt) for rt in resource_types)
     lines = []
     lines.append(f"AWS Resource Tracer — {region} ({rt_label})")
     lines.append("=" * 60)
@@ -644,9 +648,10 @@ def parse_args():
         "--region", default="us-east-1",
         help="AWS region (default: us-east-1)"
     )
+    all_types = ",".join(RESOURCE_TYPE_LABELS.keys())
     parser.add_argument(
-        "--resource-type", default="ec2", choices=["ec2", "nat-gateway", "vpc-endpoint"],
-        help="Resource type to trace (default: ec2)"
+        "--resource-type", default=all_types,
+        help=f"Comma-separated resource types to trace (default: {all_types})"
     )
     parser.add_argument(
         "--scan", action="store_true",
@@ -700,35 +705,36 @@ def main():
 
     skip_ocm = args.skip_ocm
     ocm_accounts = args.ocm_accounts.split(",")
-    resource_type = args.resource_type
-    state_list = (args.states or DEFAULT_STATES[resource_type]).split(",")
+    resource_types = args.resource_type.split(",")
 
-    if resource_type == "ec2":
-        if args.scan:
-            print(f"Scanning {args.region} for EC2 instances in states: {', '.join(state_list)}")
-            resources = fetch_ec2_instances(ec2_client, states=state_list)
-        else:
-            resources = fetch_ec2_instances(ec2_client, instance_ids=args.resource_ids)
-        print(f"Found {len(resources)} instances")
-        traces = [classify_ec2_instance(r) for r in resources]
+    for rt in resource_types:
+        if rt not in RESOURCE_TYPE_LABELS:
+            print(f"Error: unknown resource type '{rt}'. Valid types: {', '.join(RESOURCE_TYPE_LABELS.keys())}")
+            sys.exit(1)
 
-    elif resource_type == "nat-gateway":
-        if args.scan:
-            print(f"Scanning {args.region} for NAT gateways in states: {', '.join(state_list)}")
-            resources = fetch_nat_gateways(ec2_client, states=state_list)
-        else:
-            resources = fetch_nat_gateways(ec2_client, nat_gateway_ids=args.resource_ids)
-        print(f"Found {len(resources)} NAT gateways")
-        traces = [classify_nat_gateway(r) for r in resources]
+    if not args.scan and len(resource_types) > 1:
+        print("Error: specify a single --resource-type when passing resource IDs")
+        sys.exit(1)
 
-    elif resource_type == "vpc-endpoint":
+    traces = []
+
+    fetch_classify = {
+        "ec2": (fetch_ec2_instances, classify_ec2_instance, "instances"),
+        "nat-gateway": (fetch_nat_gateways, classify_nat_gateway, "NAT gateways"),
+        "vpc-endpoint": (fetch_vpc_endpoints, classify_vpc_endpoint, "VPC endpoints"),
+    }
+
+    for rt in resource_types:
+        fetch_fn, classify_fn, label = fetch_classify[rt]
+        state_list = (args.states or DEFAULT_STATES[rt]).split(",")
+
         if args.scan:
-            print(f"Scanning {args.region} for VPC endpoints in states: {', '.join(state_list)}")
-            resources = fetch_vpc_endpoints(ec2_client, states=state_list)
+            print(f"Scanning {args.region} for {label} in states: {', '.join(state_list)}")
+            resources = fetch_fn(ec2_client, states=state_list)
         else:
-            resources = fetch_vpc_endpoints(ec2_client, endpoint_ids=args.resource_ids)
-        print(f"Found {len(resources)} VPC endpoints")
-        traces = [classify_vpc_endpoint(r) for r in resources]
+            resources = fetch_fn(ec2_client, args.resource_ids)
+        print(f"Found {len(resources)} {label}")
+        traces.extend(classify_fn(r) for r in resources)
 
     ocm_clusters = {}
     owner_cache = {}
@@ -745,7 +751,7 @@ def main():
         sys.stdout = real_stdout
         print(format_json_report(traces))
     else:
-        print(format_text_report(traces, args.region, resource_type))
+        print(format_text_report(traces, args.region, resource_types))
 
 
 if __name__ == "__main__":
