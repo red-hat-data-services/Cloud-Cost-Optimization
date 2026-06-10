@@ -279,6 +279,8 @@ def main():
     args = parser.parse_args()
     dry_run = args.dry_run == "true"
 
+    traces = load_traces(args.input_file, args.include_questionable)
+
     print("AWS Resource Pruner")
     print("=" * 40)
     if dry_run:
@@ -287,16 +289,14 @@ def main():
         print("Mode: LIVE — resources will be deleted")
     if args.include_questionable:
         print("Accepting: prunable + questionable")
-    print(f"Region: {args.region}\n")
+    print(f"Region: {args.region}")
+    print(f"Loaded {len(traces)} resources from input\n")
 
     try:
         ec2 = boto3.Session(region_name=args.region).client("ec2")
     except NoCredentialsError:
         print("Error: AWS credentials not found.")
         sys.exit(1)
-
-    traces = load_traces(args.input_file, args.include_questionable)
-    print(f"Loaded {len(traces)} resources from input")
 
     ec2_traces = [t for t in traces if t["resource_type"] == "ec2"]
     nat_traces = [t for t in traces if t["resource_type"] == "nat-gateway"]
