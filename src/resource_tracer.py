@@ -206,7 +206,7 @@ def _classify_by_tags(tags, trace):
             trace.expired_ago = _format_age(exp_dt)
 
     # 1. Prow CI
-    if "prow.k8s.io/build-id" in tags and "prow.k8s.io/job" in tags:
+    if tags.get("prow.k8s.io/build-id") and tags.get("prow.k8s.io/job"):
         trace.cluster_type = "prow-ci"
         trace.prow_job = tags["prow.k8s.io/job"]
         trace.prow_build_id = tags["prow.k8s.io/build-id"]
