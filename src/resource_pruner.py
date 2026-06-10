@@ -38,9 +38,11 @@ def load_traces(input_file):
         sys.exit(1)
 
     allowed_prunability = {"prunable", "questionable"}
+    required_fields = {"resource_id", "resource_type", "state"}
     for t in traces:
-        if "resource_id" not in t or "resource_type" not in t:
-            print(f"Error: entry missing resource_id or resource_type: {t}")
+        missing = required_fields - t.keys()
+        if missing:
+            print(f"Error: entry missing {', '.join(sorted(missing))}: {t.get('resource_id', '<unknown>')}")
             sys.exit(1)
 
     rejected = [t for t in traces if t.get("prunability") not in allowed_prunability]
