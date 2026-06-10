@@ -492,7 +492,9 @@ def group_by_cluster(traces):
 
 # ── Text report ───────────────────────────────────────────────
 
-def format_text_report(traces, region, resource_types=None):
+def format_text_report(traces, region, resource_types=None, all_traces=None):
+    if all_traces is None:
+        all_traces = traces
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     if resource_types is None:
         resource_types = list(RESOURCE_TYPE_LABELS.keys())
@@ -502,7 +504,11 @@ def format_text_report(traces, region, resource_types=None):
     lines = []
     lines.append(f"AWS Resource Tracer — {region} ({rt_label})")
     lines.append("=" * 60)
-    lines.append(f"Scanned: {len(traces)} resources | {now_str}")
+    scanned_label = f"Scanned: {len(all_traces)} resources"
+    if len(traces) != len(all_traces):
+        scanned_label += f" | Showing: {len(traces)}"
+    scanned_label += f" | {now_str}"
+    lines.append(scanned_label)
     lines.append("")
 
     grouped = group_by_cluster(traces)
@@ -551,7 +557,7 @@ def format_text_report(traces, region, resource_types=None):
             )
         lines.append("")
 
-    lines.append(_format_summary(traces, grouped))
+    lines.append(_format_summary(traces, grouped, all_traces))
     return "\n".join(lines)
 
 
@@ -593,7 +599,9 @@ def _type_label(cluster_type):
     return labels.get(cluster_type, cluster_type)
 
 
-def _format_summary(traces, grouped):
+def _format_summary(traces, grouped, all_traces=None):
+    if all_traces is None:
+        all_traces = traces
     lines = ["=" * 60, "Summary", "=" * 60]
 
     type_counts = defaultdict(lambda: {"resources": 0, "clusters": set(), "expired_clusters": set()})
@@ -619,17 +627,14 @@ def _format_summary(traces, grouped):
             f"({len(tc['clusters'])} clusters{expired_note})"
         )
 
-    prunable_count = sum(1 for t in traces if t.prunability == "prunable")
-    questionable_count = sum(1 for t in traces if t.prunability == "questionable")
-    if prunable_count or questionable_count:
-        lines.append("")
-        lines.append("Prunability:")
-        if prunable_count:
-            lines.append(f"  Prunable:        {prunable_count:>4} resources")
-        if questionable_count:
-            lines.append(f"  Questionable:    {questionable_count:>4} resources")
-        not_prunable = len(traces) - prunable_count - questionable_count
-        lines.append(f"  Not prunable:    {not_prunable:>4} resources")
+    prunable_count = sum(1 for t in all_traces if t.prunability == "prunable")
+    questionable_count = sum(1 for t in all_traces if t.prunability == "questionable")
+    not_prunable = len(all_traces) - prunable_count - questionable_count
+    lines.append("")
+    lines.append("Prunability (all scanned):")
+    lines.append(f"  Prunable:        {prunable_count:>4} resources")
+    lines.append(f"  Questionable:    {questionable_count:>4} resources")
+    lines.append(f"  Not prunable:    {not_prunable:>4} resources")
 
     return "\n".join(lines)
 
@@ -745,13 +750,14 @@ def main():
         enrich_with_ocm(traces, ocm_clusters, owner_cache)
 
     classify_prunability(traces, ocm_clusters, age_threshold=args.age_threshold)
+    all_traces = traces
     traces = filter_traces(traces, args.filter)
 
     if json_mode:
         sys.stdout = real_stdout
         print(format_json_report(traces))
     else:
-        print(format_text_report(traces, args.region, resource_types))
+        print(format_text_report(traces, args.region, resource_types, all_traces))
 
 
 if __name__ == "__main__":
