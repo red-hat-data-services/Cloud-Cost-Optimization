@@ -450,7 +450,7 @@ def classify_prunability(traces, ocm_clusters, age_threshold=30):
                 ocm_clusters.get(trace.cluster_name)
                 or ocm_clusters.get(trace.cluster_id)
             )
-            ocm_status = ocm_entry["status"] if ocm_entry else ""
+            ocm_status = ocm_entry.get("status", "") if ocm_entry else ""
             if ocm_status == "error":
                 trace.prunability = "questionable"
             elif age >= age_threshold:
