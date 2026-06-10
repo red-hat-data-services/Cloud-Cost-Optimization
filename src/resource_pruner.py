@@ -2,7 +2,7 @@
 AWS Resource Pruner
 
 Reads JSON output from resource_tracer.py and deletes the listed resources.
-Supports EC2 instances, NAT gateways, and VPC endpoints.
+Supports EC2 instances, NAT gateways, VPC endpoints, and Elastic IPs.
 
 Usage:
     # Dry run (default) — shows what would be deleted
@@ -210,6 +210,47 @@ def delete_vpc_endpoints(ec2, traces, dry_run):
             print(f"  {eid}")
 
 
+def release_eips(ec2, traces, dry_run):
+    if not traces:
+        print("No Elastic IPs to release.")
+        return
+
+    if dry_run:
+        _print_dry_run(traces, "Elastic IPs")
+        return
+
+    print(f"\n=== RELEASING {len(traces)} Elastic IPs ===\n")
+    success = 0
+    failed = []
+
+    for t in traces:
+        alloc_id = t["resource_id"]
+        public_ip = t.get("instance_type", "")
+        label = f"{alloc_id} ({public_ip})" if public_ip else alloc_id
+        try:
+            if t.get("state") == "associated":
+                assoc_id = t.get("tags", {}).get("AssociationId", "")
+                if not assoc_id:
+                    resp = ec2.describe_addresses(AllocationIds=[alloc_id])
+                    addrs = resp.get("Addresses", [])
+                    assoc_id = addrs[0].get("AssociationId", "") if addrs else ""
+                if assoc_id:
+                    print(f"  Disassociating {label}...")
+                    ec2.disassociate_address(AssociationId=assoc_id)
+            print(f"  Releasing {label}...")
+            ec2.release_address(AllocationId=alloc_id)
+            success += 1
+        except ClientError as e:
+            print(f"    Error: {e}")
+            failed.append(alloc_id)
+
+    print(f"\nResult: {success} released, {len(failed)} failed")
+    if failed:
+        print("Failed Elastic IP IDs:")
+        for aid in failed:
+            print(f"  {aid}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="AWS Resource Pruner — deletes resources from resource_tracer.py JSON output"
@@ -260,7 +301,8 @@ def main():
     ec2_traces = [t for t in traces if t["resource_type"] == "ec2"]
     nat_traces = [t for t in traces if t["resource_type"] == "nat-gateway"]
     vpce_traces = [t for t in traces if t["resource_type"] == "vpc-endpoint"]
-    other = len(traces) - len(ec2_traces) - len(nat_traces) - len(vpce_traces)
+    eip_traces = [t for t in traces if t["resource_type"] == "eip"]
+    other = len(traces) - len(ec2_traces) - len(nat_traces) - len(vpce_traces) - len(eip_traces)
     if other:
         print(f"Skipping {other} unsupported resource types")
 
@@ -270,6 +312,8 @@ def main():
         delete_nat_gateways(ec2, nat_traces, dry_run)
     if vpce_traces:
         delete_vpc_endpoints(ec2, vpce_traces, dry_run)
+    if eip_traces:
+        release_eips(ec2, eip_traces, dry_run)
 
 
 if __name__ == "__main__":

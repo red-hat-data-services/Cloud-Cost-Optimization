@@ -3,7 +3,7 @@ AWS Resource Tracer
 
 Read-only inspection tool that traces AWS resources back to their OpenShift
 clusters and identifies who provisioned them. Supports EC2 instances,
-NAT gateways, and VPC endpoints.
+NAT gateways, VPC endpoints, and Elastic IPs.
 
 Usage:
   python src/resource_tracer.py i-01d154018d489351c --region us-east-1
@@ -28,12 +28,14 @@ RESOURCE_TYPE_LABELS = {
     "ec2": "EC2 Instances",
     "nat-gateway": "NAT Gateways",
     "vpc-endpoint": "VPC Endpoints",
+    "eip": "Elastic IPs",
 }
 
 DEFAULT_STATES = {
     "ec2": "running,stopped",
     "nat-gateway": "available,failed",
     "vpc-endpoint": "available,pending",
+    "eip": "all",
 }
 
 
@@ -135,6 +137,20 @@ def fetch_vpc_endpoints(ec2_client, endpoint_ids=None, states=None):
         print(f"Error fetching VPC endpoints: {e}")
 
     return endpoints
+
+
+def fetch_eips(ec2_client, allocation_ids=None, states=None):
+    try:
+        if allocation_ids:
+            response = ec2_client.describe_addresses(AllocationIds=allocation_ids)
+        else:
+            response = ec2_client.describe_addresses(
+                Filters=[{"Name": "domain", "Values": ["vpc"]}]
+            )
+        return response.get("Addresses", [])
+    except ClientError as e:
+        print(f"Error fetching Elastic IPs: {e}")
+        return []
 
 
 # ── Tag helpers ───────────────────────────────────────────────
@@ -287,6 +303,21 @@ def classify_vpc_endpoint(endpoint):
         name=tags.get("Name", ""),
         launch_time=create_time.isoformat() if create_time else "",
         age_str=_format_age(create_time),
+        tags=tags,
+    )
+    return _classify_by_tags(tags, trace)
+
+
+def classify_eip(address):
+    tags = _tags_to_dict(address)
+    state = "associated" if address.get("AssociationId") else "unassociated"
+
+    trace = ResourceTrace(
+        resource_id=address["AllocationId"],
+        resource_type="eip",
+        instance_type=address.get("PublicIp", ""),
+        state=state,
+        name=tags.get("Name", ""),
         tags=tags,
     )
     return _classify_by_tags(tags, trace)
@@ -727,6 +758,7 @@ def main():
         "ec2": (fetch_ec2_instances, classify_ec2_instance, "instances"),
         "nat-gateway": (fetch_nat_gateways, classify_nat_gateway, "NAT gateways"),
         "vpc-endpoint": (fetch_vpc_endpoints, classify_vpc_endpoint, "VPC endpoints"),
+        "eip": (fetch_eips, classify_eip, "Elastic IPs"),
     }
 
     for rt in resource_types:
@@ -734,7 +766,10 @@ def main():
         state_list = (args.states or DEFAULT_STATES[rt]).split(",")
 
         if args.scan:
-            print(f"Scanning {args.region} for {label} in states: {', '.join(state_list)}")
+            if state_list == ["all"]:
+                print(f"Scanning {args.region} for {label}")
+            else:
+                print(f"Scanning {args.region} for {label} in states: {', '.join(state_list)}")
             resources = fetch_fn(ec2_client, states=state_list)
         else:
             resources = fetch_fn(ec2_client, args.resource_ids)
