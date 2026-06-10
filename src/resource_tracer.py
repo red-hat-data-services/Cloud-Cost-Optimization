@@ -440,7 +440,7 @@ def classify_prunability(traces, ocm_clusters, age_threshold=30):
         if trace.cluster_type == "prow-ci":
             if trace.is_expired:
                 trace.prunability = "prunable"
-            elif not trace.expiration_date:
+            elif not trace.expiration_date and age >= age_threshold:
                 trace.prunability = "questionable"
             else:
                 trace.prunability = "not-prunable"
