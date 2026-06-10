@@ -37,10 +37,18 @@ def load_traces(input_file):
         print("Error: expected a JSON array")
         sys.exit(1)
 
+    allowed_prunability = {"prunable", "questionable"}
     for t in traces:
         if "resource_id" not in t or "resource_type" not in t:
             print(f"Error: entry missing resource_id or resource_type: {t}")
             sys.exit(1)
+
+    rejected = [t for t in traces if t.get("prunability") not in allowed_prunability]
+    if rejected:
+        print(f"Refusing to delete {len(rejected)} resources not marked prunable or questionable:")
+        for t in rejected:
+            print(f"  {t['resource_id']} (prunability={t.get('prunability', '<missing>')})")
+        sys.exit(1)
 
     return traces
 
