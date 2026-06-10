@@ -458,6 +458,12 @@ def classify_prunability(traces, ocm_clusters, age_threshold=30):
             else:
                 trace.prunability = "not-prunable"
 
+        elif trace.cluster_type == "unknown":
+            if age >= age_threshold:
+                trace.prunability = "questionable"
+            else:
+                trace.prunability = "not-prunable"
+
         else:
             trace.prunability = "not-prunable"
 

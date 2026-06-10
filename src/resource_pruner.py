@@ -25,7 +25,7 @@ EC2_BATCH_SIZE = 1000
 VPCE_BATCH_SIZE = 25
 
 
-def load_traces(input_file):
+def load_traces(input_file, include_questionable=False):
     if input_file == "-":
         data = sys.stdin.read()
     else:
@@ -37,7 +37,10 @@ def load_traces(input_file):
         print("Error: expected a JSON array")
         sys.exit(1)
 
-    allowed_prunability = {"prunable", "questionable"}
+    allowed_prunability = {"prunable"}
+    if include_questionable:
+        allowed_prunability.add("questionable")
+
     required_fields = {"resource_id", "resource_type", "state"}
     for t in traces:
         missing = required_fields - t.keys()
@@ -47,7 +50,8 @@ def load_traces(input_file):
 
     rejected = [t for t in traces if t.get("prunability") not in allowed_prunability]
     if rejected:
-        print(f"Refusing to delete {len(rejected)} resources not marked prunable or questionable:")
+        label = "prunable or questionable" if include_questionable else "prunable"
+        print(f"Refusing to delete {len(rejected)} resources not marked {label}:")
         for t in rejected:
             print(f"  {t['resource_id']} (prunability={t.get('prunability', '<missing>')})")
         sys.exit(1)
@@ -226,6 +230,10 @@ def main():
         default="us-west-2",
         help="AWS region (default: us-west-2)",
     )
+    parser.add_argument(
+        "--include-questionable", action="store_true",
+        help="Also accept resources marked 'questionable' (default: only 'prunable')",
+    )
 
     args = parser.parse_args()
     dry_run = args.dry_run == "true"
@@ -236,6 +244,8 @@ def main():
         print("Mode: DRY RUN")
     else:
         print("Mode: LIVE — resources will be deleted")
+    if args.include_questionable:
+        print("Accepting: prunable + questionable")
     print(f"Region: {args.region}\n")
 
     try:
@@ -244,7 +254,7 @@ def main():
         print("Error: AWS credentials not found.")
         sys.exit(1)
 
-    traces = load_traces(args.input_file)
+    traces = load_traces(args.input_file, args.include_questionable)
     print(f"Loaded {len(traces)} resources from input")
 
     ec2_traces = [t for t in traces if t["resource_type"] == "ec2"]
