@@ -2,8 +2,8 @@
 AWS Resource Tracer
 
 Read-only inspection tool that traces AWS resources back to their OpenShift
-clusters and identifies who provisioned them. Supports EC2 instances and
-NAT gateways.
+clusters and identifies who provisioned them. Supports EC2 instances,
+NAT gateways, and VPC endpoints.
 
 Usage:
   python src/resource_tracer.py i-01d154018d489351c --region us-east-1
@@ -27,11 +27,13 @@ from botocore.exceptions import ClientError, NoCredentialsError
 RESOURCE_TYPE_LABELS = {
     "ec2": "EC2 Instances",
     "nat-gateway": "NAT Gateways",
+    "vpc-endpoint": "VPC Endpoints",
 }
 
 DEFAULT_STATES = {
     "ec2": "running,stopped",
     "nat-gateway": "available,failed",
+    "vpc-endpoint": "available,pending",
 }
 
 
@@ -110,6 +112,29 @@ def fetch_nat_gateways(ec2_client, nat_gateway_ids=None, states=None):
         print(f"Error fetching NAT gateways: {e}")
 
     return gateways
+
+
+def fetch_vpc_endpoints(ec2_client, endpoint_ids=None, states=None):
+    endpoints = []
+    paginator = ec2_client.get_paginator("describe_vpc_endpoints")
+
+    try:
+        if endpoint_ids:
+            pages = paginator.paginate(VpcEndpointIds=endpoint_ids)
+        elif states:
+            pages = paginator.paginate(
+                Filters=[{"Name": "vpc-endpoint-state", "Values": states}]
+            )
+        else:
+            pages = paginator.paginate()
+
+        for page in pages:
+            endpoints.extend(page["VpcEndpoints"])
+
+    except ClientError as e:
+        print(f"Error fetching VPC endpoints: {e}")
+
+    return endpoints
 
 
 # ── Tag helpers ───────────────────────────────────────────────
@@ -243,6 +268,22 @@ def classify_nat_gateway(nat_gw):
         resource_id=nat_gw["NatGatewayId"],
         resource_type="nat-gateway",
         state=nat_gw.get("State", ""),
+        name=tags.get("Name", ""),
+        launch_time=create_time.isoformat() if create_time else "",
+        age_str=_format_age(create_time),
+        tags=tags,
+    )
+    return _classify_by_tags(tags, trace)
+
+
+def classify_vpc_endpoint(endpoint):
+    tags = _tags_to_dict(endpoint)
+    create_time = endpoint.get("CreationTimestamp")
+
+    trace = ResourceTrace(
+        resource_id=endpoint["VpcEndpointId"],
+        resource_type="vpc-endpoint",
+        state=endpoint.get("State", ""),
         name=tags.get("Name", ""),
         launch_time=create_time.isoformat() if create_time else "",
         age_str=_format_age(create_time),
@@ -604,7 +645,7 @@ def parse_args():
         help="AWS region (default: us-east-1)"
     )
     parser.add_argument(
-        "--resource-type", default="ec2", choices=["ec2", "nat-gateway"],
+        "--resource-type", default="ec2", choices=["ec2", "nat-gateway", "vpc-endpoint"],
         help="Resource type to trace (default: ec2)"
     )
     parser.add_argument(
@@ -613,7 +654,7 @@ def parse_args():
     )
     parser.add_argument(
         "--states", default=None,
-        help="Comma-separated states for --scan (default: running,stopped for EC2; available,failed for NAT gateways)"
+        help="Comma-separated states for --scan (default depends on resource type)"
     )
     parser.add_argument(
         "--ocm-accounts", default="PROD,STAGE",
@@ -679,6 +720,15 @@ def main():
             resources = fetch_nat_gateways(ec2_client, nat_gateway_ids=args.resource_ids)
         print(f"Found {len(resources)} NAT gateways")
         traces = [classify_nat_gateway(r) for r in resources]
+
+    elif resource_type == "vpc-endpoint":
+        if args.scan:
+            print(f"Scanning {args.region} for VPC endpoints in states: {', '.join(state_list)}")
+            resources = fetch_vpc_endpoints(ec2_client, states=state_list)
+        else:
+            resources = fetch_vpc_endpoints(ec2_client, endpoint_ids=args.resource_ids)
+        print(f"Found {len(resources)} VPC endpoints")
+        traces = [classify_vpc_endpoint(r) for r in resources]
 
     ocm_clusters = {}
     owner_cache = {}

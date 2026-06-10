@@ -2,7 +2,7 @@
 AWS Resource Pruner
 
 Reads JSON output from resource_tracer.py and deletes the listed resources.
-Supports EC2 instances and NAT gateways.
+Supports EC2 instances, NAT gateways, and VPC endpoints.
 
 Usage:
     # Dry run (default) — shows what would be deleted
@@ -22,6 +22,7 @@ from botocore.exceptions import ClientError, NoCredentialsError
 
 
 EC2_BATCH_SIZE = 1000
+VPCE_BATCH_SIZE = 25
 
 
 def load_traces(input_file):
@@ -153,6 +154,48 @@ def delete_nat_gateways(ec2, traces, dry_run):
             print(f"  {nid}")
 
 
+def delete_vpc_endpoints(ec2, traces, dry_run):
+    skip_states = {"deleted", "deleting"}
+    actionable = [t for t in traces if t.get("state", "") not in skip_states]
+    skipped = len(traces) - len(actionable)
+    if skipped:
+        print(f"Skipping {skipped} already deleted/deleting VPC endpoints")
+
+    if not actionable:
+        print("No VPC endpoints to delete.")
+        return
+
+    if dry_run:
+        _print_dry_run(actionable, "VPC endpoints")
+        return
+
+    print(f"\n=== DELETING {len(actionable)} VPC endpoints ===\n")
+    endpoint_ids = [t["resource_id"] for t in actionable]
+    success = 0
+    failed = []
+
+    for i in range(0, len(endpoint_ids), VPCE_BATCH_SIZE):
+        batch = endpoint_ids[i : i + VPCE_BATCH_SIZE]
+        print(f"Deleting batch of {len(batch)} VPC endpoints...")
+        for eid in batch:
+            print(f"  {eid}")
+        try:
+            resp = ec2.delete_vpc_endpoints(VpcEndpointIds=batch)
+            unsuccessful = resp.get("Unsuccessful", [])
+            batch_failed = [item["ResourceId"] for item in unsuccessful]
+            failed.extend(batch_failed)
+            success += len(batch) - len(batch_failed)
+        except ClientError as e:
+            print(f"  Error deleting batch: {e}")
+            failed.extend(batch)
+
+    print(f"\nResult: {success} deleted, {len(failed)} failed")
+    if failed:
+        print("Failed VPC endpoint IDs:")
+        for eid in failed:
+            print(f"  {eid}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="AWS Resource Pruner — deletes resources from resource_tracer.py JSON output"
@@ -196,7 +239,8 @@ def main():
 
     ec2_traces = [t for t in traces if t["resource_type"] == "ec2"]
     nat_traces = [t for t in traces if t["resource_type"] == "nat-gateway"]
-    other = len(traces) - len(ec2_traces) - len(nat_traces)
+    vpce_traces = [t for t in traces if t["resource_type"] == "vpc-endpoint"]
+    other = len(traces) - len(ec2_traces) - len(nat_traces) - len(vpce_traces)
     if other:
         print(f"Skipping {other} unsupported resource types")
 
@@ -204,6 +248,8 @@ def main():
         terminate_instances(ec2, ec2_traces, dry_run)
     if nat_traces:
         delete_nat_gateways(ec2, nat_traces, dry_run)
+    if vpce_traces:
+        delete_vpc_endpoints(ec2, vpce_traces, dry_run)
 
 
 if __name__ == "__main__":
