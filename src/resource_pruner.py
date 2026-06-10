@@ -97,7 +97,7 @@ def terminate_instances(ec2, traces, dry_run):
         return
 
     print(f"\n=== TERMINATING {len(actionable)} instances ===\n")
-    instance_ids = [t["resource_id"] for t in actionable]
+    instance_ids = list(dict.fromkeys(t["resource_id"] for t in actionable))
     success = 0
     failed = []
 
@@ -184,7 +184,7 @@ def delete_vpc_endpoints(ec2, traces, dry_run):
         return
 
     print(f"\n=== DELETING {len(actionable)} VPC endpoints ===\n")
-    endpoint_ids = [t["resource_id"] for t in actionable]
+    endpoint_ids = list(dict.fromkeys(t["resource_id"] for t in actionable))
     success = 0
     failed = []
 
