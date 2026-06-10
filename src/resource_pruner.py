@@ -41,7 +41,7 @@ def load_traces(input_file, include_questionable=False):
     if include_questionable:
         allowed_prunability.add("questionable")
 
-    required_fields = {"resource_id", "resource_type", "state"}
+    required_fields = {"resource_id", "resource_type", "state", "prunability"}
     for t in traces:
         missing = required_fields - t.keys()
         if missing:
