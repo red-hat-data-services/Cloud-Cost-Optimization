@@ -128,14 +128,12 @@ def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
 
     print("Cluster name ==========")
     print(cluster.name)
-    print("Visible Instances ====")
-    print([name for name in ec2_map])
 
+    worker_nodes = [ec2_name for ec2_name in ec2_map]
+    debug_worker_nodes = [worker_node for worker_node in ec2_map if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
 
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
-
-    print("Filtered worker nodes =========")
-    print(worker_nodes)
+    print("Debug worker nodes =========")
+    print(debug_worker_nodes)
 
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
