@@ -44,7 +44,7 @@ def get_all_instances(ec2_instances, current_state):
 def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
     result = False
     for tag in ec2_instance['Tags']:
-        if tag['Key'] == 'api.openshift.com/name' and tag['Value'] == cluster_name:
+        if tag['Key'] == 'Name' and tag['Value'].startswith(f'{cluster_name}'):
             result = True
             break
     return result
