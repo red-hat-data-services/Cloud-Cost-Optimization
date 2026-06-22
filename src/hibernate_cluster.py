@@ -77,15 +77,16 @@ def hibernate_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for
 
 def wait_for_rosa_cluster_to_be_hibernated(cluster:utils.OcCluster, worker_count:int):
     time.sleep(15)
-    ec2_map = utils.get_instances_for_region(cluster.region, 'stopped')
+    ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'stopped', cluster.name)
     InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
                    if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+    print("Post-filter InstanceIDs:", InstanceIds, flush=True)
 
     print(f"Waiting for {worker_count} worker nodes to stop, please wait...", flush=True)
     while len(InstanceIds) < worker_count:
         print(f'\t{len(InstanceIds)}/{worker_count} nodes are stopped, will check again in 5s...', flush=True)
         time.sleep(5)
-        ec2_map = utils.get_instances_for_region(cluster.region, 'stopped')
+        ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'stopped', cluster.name)
         InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
                        if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
 
@@ -160,8 +161,7 @@ def main():
 
         print(f"=== Getting all instances for region {target_cluster.region} ===", flush=True)
         ec2_map = utils.get_instances_for_region_and_cluster_name(target_cluster.region, 'running', target_cluster.name)
-        print(ec2_map.keys(), flush=True)
-        return
+        print("Found instances: ", ec2_map.keys(), flush=True)
 
         print(f"=== Hibernating {target_cluster.name} ===", flush=True)
         if target_cluster.hcp == "false":
