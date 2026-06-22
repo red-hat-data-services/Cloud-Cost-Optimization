@@ -14,12 +14,9 @@ def get_all_cluster_details(ocm_account:str, clusters:dict):
 
 
 def check_instance_status(cluster:utils.OcCluster, ec2_running_map:dict, ec2_stopped_map:dict):
-    running_worker_nodes = [ec2_name for ec2_name in ec2_running_map if ec2_name.startswith(f'{cluster.name}-')]
-    InstanceIds_running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in running_worker_nodes if
+    InstanceIds_running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in ec2_running_map if
                    utils.worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
-
-    stopped_worker_nodes = [ec2_name for ec2_name in ec2_stopped_map if ec2_name.startswith(f'{cluster.name}-')]
-    InstanceIds_stopped = [ec2_stopped_map[worker_node]['InstanceId'] for worker_node in stopped_worker_nodes if
+    InstanceIds_stopped = [ec2_stopped_map[worker_node]['InstanceId'] for worker_node in ec2_stopped_map if
                    utils.worker_node_belongs_to_the_hcp_cluster(ec2_stopped_map[worker_node], cluster.name)]
 
     ec2_client = boto3.client('ec2', region_name=cluster.region)

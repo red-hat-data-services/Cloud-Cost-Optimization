@@ -111,11 +111,11 @@ def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int)
                        if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
     print("All nodes running", flush=True)
 
-    status_map = get_instance_status(cluster, InstanceIds)
+    status_map = get_instance_and_system_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['ok_ok']):
         print('\tWaiting for worker nodes to report status=ok, will check again in 5s...', flush=True)
         time.sleep(5)
-        status_map = get_instance_status(cluster, InstanceIds)
+        status_map = get_instance_and_system_status(cluster, InstanceIds)
 
 
 def wait_for_ipi_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
@@ -133,14 +133,14 @@ def wait_for_ipi_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
                        and utils.worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.internal_name)]
     print("All nodes running", flush=True)
 
-    status_map = get_instance_status(cluster, InstanceIds)
+    status_map = get_instance_and_system_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['ok_ok']):
         print('Worker nodes initializing, please wait...', flush=True)
         time.sleep(5)
-        status_map = get_instance_status(cluster, InstanceIds)
+        status_map = get_instance_and_system_status(cluster, InstanceIds)
 
 
-def get_instance_status(cluster:utils.OcCluster, InstanceIds:list):
+def get_instance_and_system_status(cluster:utils.OcCluster, InstanceIds:list):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     ec2_map = ec2_client.describe_instance_status(InstanceIds=InstanceIds)
     status_map = {ec2['InstanceId']:f"{ec2['InstanceStatus']['Status']}_{ec2['SystemStatus']['Status']}" for ec2 in ec2_map['InstanceStatuses']}

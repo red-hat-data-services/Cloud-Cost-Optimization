@@ -4,8 +4,6 @@ import os
 import re
 import time
 from enum import Enum
-from typing import List
-
 import boto3
 import smartsheet
 
@@ -102,7 +100,7 @@ def get_instances_for_region(region, current_state):
     for instance in ec2_map:
         name_tags = [tag['Value'] for tag in instance.get("Tags", []) if tag['Key'] == 'Name']
         if name_tags:
-            tagged_instances_map [name_tags[0]] = instance
+            tagged_instances_map[name_tags[0]] = instance
     return tagged_instances_map
 
 
@@ -111,6 +109,7 @@ def run_command(command):
     """Run a shell command"""
     output = os.popen(command).read()
     return output
+
 
 def get_cluster_list(ocm_account:str):
     run_command(f'script/./get_all_cluster_details.sh {ocm_account}')

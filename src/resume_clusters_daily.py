@@ -21,13 +21,13 @@ def main():
         if cluster.id in smartsheet_data:
             cluster_inactive_hours_end = smartsheet_data[cluster.id][utils.ClusterSmartsheetColumns.INACTIVE_HOURS_END]
 
-            if cluster_inactive_hours_end[1]:
-                if cluster_inactive_hours_end[1].count(':') < 1:
-                    print(f'Invalid inactive_hours_end {cluster_inactive_hours_end[1]} for cluster {cluster.name}')
+            if cluster_inactive_hours_end:
+                if cluster_inactive_hours_end.count(':') < 1:
+                    print(f'Invalid inactive_hours_end {cluster_inactive_hours_end} for cluster {cluster.name}')
                     continue
-                if cluster_inactive_hours_end[1].count(':') == 1:
-                    cluster_inactive_hours_end[1] += ':00'
-                cluster.inactive_hours_end = cluster_inactive_hours_end[1]
+                if cluster_inactive_hours_end.count(':') == 1:
+                    cluster_inactive_hours_end += ':00'
+                cluster.inactive_hours_end = cluster_inactive_hours_end
 
     print("=== Resuming clusters ===", flush=True)
     resumed_clusters = []
