@@ -69,6 +69,8 @@ def sync_hcp_node_pools(cluster:utils.OcCluster):
     node_pools = node_pools_response.json()
     node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
     totalNodes = 0
+
+    print("=== Syncing node pools ===", flush=True)
     for id, replicas in node_pools.items():
         newReplicas = replicas+1 if replicas <= 2 else replicas-1
         payload = {'id': id, 'labels': {}, 'taints': [], 'replicas': newReplicas}
@@ -76,22 +78,22 @@ def sync_hcp_node_pools(cluster:utils.OcCluster):
                                   data=json.dumps(payload),
                                   headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
 
-        print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}')
+        print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}', flush=True)
         print(response.status_code)
         if response.status_code == 200:
             totalNodes += newReplicas
-            print(f'now total nodes are {totalNodes}')
+            print(f'now total nodes are {totalNodes}', flush=True)
 
         payload = {'id': id, 'labels': {}, 'taints': [], 'replicas': replicas}
         response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
                                   data=json.dumps(payload),
                                   headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
 
-        print(f'reset the machine pool {id} with the original replica count {replicas} for cluster {cluster.name}')
-        print(response.status_code)
+        print(f'reset the machine pool {id} with the original replica count {replicas} for cluster {cluster.name}', flush=True)
+        print(response.status_code, flush=True)
         if response.status_code == 200:
             totalNodes += replicas - newReplicas
-            print(f'now total nodes are back to {totalNodes}')
+            print(f'now total nodes are back to {totalNodes}', flush=True)
 
     time.sleep(30)
     return totalNodes
