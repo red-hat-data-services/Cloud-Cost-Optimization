@@ -188,8 +188,8 @@ def main():
         ec2_map = utils.get_instances_for_region_and_tag(target_cluster.region, 'stopped', target_cluster.name)
         ec2_running_map = utils.get_instances_for_region_and_tag(target_cluster.region, 'running', target_cluster.name)
 
-        print("Running instances:", ec2_running_map, flush=True)
-        print("Stopped instances:", ec2_map, flush=True)
+        print("Running instances:", ec2_running_map.keys(), flush=True)
+        print("Stopped instances:", ec2_map.keys(), flush=True)
         return
 
         print(f"=== Resuming {target_cluster.name} ===", flush=True)
