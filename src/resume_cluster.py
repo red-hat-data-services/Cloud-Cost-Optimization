@@ -32,7 +32,7 @@ def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running
     elif len(InstanceIds) > 0:
         print(f'Starting worker instances of cluster {cluster.name}: {InstanceIds}', flush=True)
         worker_count = len(InstanceIds)
-        ec2_client.terminate_instances(InstanceIds=InstanceIds)
+        ec2_client.start_instances(InstanceIds=InstanceIds)
         if wait_for_ready:
             wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
         print(f'Done resuming the cluster {cluster.name}', flush=True)
@@ -79,7 +79,6 @@ def sync_hcp_node_pools(cluster:utils.OcCluster):
                                   headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
 
         print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}', flush=True)
-        print(response.status_code)
         if response.status_code == 200:
             totalNodes += newReplicas
             print(f'now total nodes are {totalNodes}', flush=True)
@@ -90,7 +89,6 @@ def sync_hcp_node_pools(cluster:utils.OcCluster):
                                   headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
 
         print(f'reset the machine pool {id} with the original replica count {replicas} for cluster {cluster.name}', flush=True)
-        print(response.status_code, flush=True)
         if response.status_code == 200:
             totalNodes += replicas - newReplicas
             print(f'now total nodes are back to {totalNodes}', flush=True)
@@ -184,7 +182,7 @@ def main():
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
 
-        print(f"=== Getting EC2 instances for {target_cluster.region} ===", flush=True)
+        print(f"=== Getting all EC2 instances for region {target_cluster.region} and cluster {target_cluster.name} ===", flush=True)
         ec2_map = utils.get_instances_for_region_and_cluster_name(target_cluster.region, 'stopped', target_cluster.name)
         ec2_running_map = utils.get_instances_for_region_and_cluster_name(target_cluster.region, 'running', target_cluster.name)
 

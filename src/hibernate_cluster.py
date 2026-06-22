@@ -156,7 +156,7 @@ def main():
     if len(target_cluster) == 1:
         target_cluster = target_cluster[0]
 
-        print(f"=== Getting all instances for region {target_cluster.region} ===", flush=True)
+        print(f"=== Getting all EC2 instances for region {target_cluster.region} and cluster {target_cluster.name} ===", flush=True)
         ec2_map = utils.get_instances_for_region_and_cluster_name(target_cluster.region, 'running', target_cluster.name)
 
         print(f"=== Hibernating {target_cluster.name} ===", flush=True)
