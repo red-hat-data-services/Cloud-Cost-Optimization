@@ -190,7 +190,7 @@ def main():
 
         print("Running instances:", ec2_running_map, flush=True)
         print("Stopped instances:", ec2_map, flush=True)
-        return 
+        return
 
         print(f"=== Resuming {target_cluster.name} ===", flush=True)
         if target_cluster.hcp == "false":

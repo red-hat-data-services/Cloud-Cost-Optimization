@@ -109,7 +109,7 @@ def get_instances_for_region_and_tag(region, current_state, openshift_name):
     ec2_client = boto3.client('ec2', region_name=region)
     filters = [
         {'Name': 'instance-state-name', 'Values': [current_state]},
-        {"Name": "tag:api.openshift.com/name", 'Values': openshift_name}
+        {"Name": "tag:api.openshift.com/name", 'Values': [openshift_name]}
     ]
     ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=10_000)
     ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
