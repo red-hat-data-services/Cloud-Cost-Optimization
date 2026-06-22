@@ -37,7 +37,7 @@ def main():
             resume_hypershift_cluster(cluster, ec2_instances[cluster.region], wait_for_ready=False)
             print("Hypershift cluster - ", cluster.name)
         resumed_clusters.append(cluster.__dict__)
-        print(f'Hibernated {cluster.name}')
+        print(f'Resumed {cluster.name}')
 
 
 if __name__ == '__main__':
