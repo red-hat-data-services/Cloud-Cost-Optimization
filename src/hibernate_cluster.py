@@ -78,17 +78,14 @@ def hibernate_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for
 def wait_for_rosa_cluster_to_be_hibernated(cluster:utils.OcCluster, worker_count:int):
     time.sleep(15)
     ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'stopped', cluster.name)
-    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
-                   if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
-    print("Post-filter InstanceIDs:", InstanceIds, flush=True)
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map]
 
     print(f"Waiting for {worker_count} worker nodes to stop, please wait...", flush=True)
     while len(InstanceIds) < worker_count:
         print(f'\t{len(InstanceIds)}/{worker_count} nodes are stopped, will check again in 5s...', flush=True)
         time.sleep(5)
         ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'stopped', cluster.name)
-        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
-                       if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map]
 
     print("All nodes stopped", flush=True)
     status_map = utils.get_instance_status(cluster, InstanceIds)

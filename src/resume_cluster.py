@@ -30,7 +30,7 @@ def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running
         worker_count = sync_hcp_node_pools(cluster)
         wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
     elif len(InstanceIds) > 0:
-        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds, flush=True)
+        print(f'Starting worker instances of cluster {cluster.name}: {InstanceIds}', flush=True)
         worker_count = len(InstanceIds)
         ec2_client.terminate_instances(InstanceIds=InstanceIds)
         if wait_for_ready:
@@ -100,15 +100,13 @@ def sync_hcp_node_pools(cluster:utils.OcCluster):
 def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
     time.sleep(15)
     ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'running', cluster.name)
-    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
-                   if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map]
     print(f"Waiting for {len(InstanceIds)} worker nodes to start, please wait...", flush=True)
     while len(InstanceIds) < worker_count:
         print(f'\t{len(InstanceIds)}/{worker_count} nodes running, will check again in 5s...', flush=True)
         time.sleep(5)
         ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'running', cluster.name)
-        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
-                       if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map]
     print("All nodes running", flush=True)
 
     status_map = get_instance_and_system_status(cluster, InstanceIds)
