@@ -42,9 +42,10 @@ def get_all_instances(ec2_instances, current_state):
     for region in regions:
         ec2_instances[region] = get_instances_for_region(region, current_state)
 def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
+    """Check if an EC2 instance belongs to a specific HCP cluster """
     result = False
     for tag in ec2_instance['Tags']:
-        if tag['Key'] == 'Name' and tag['Value'].startswith(f'{cluster_name}'):
+        if tag['Key'] == 'api.openshift.com/name' and tag['Value'] == cluster_name:
             result = True
             break
     return result
@@ -102,7 +103,7 @@ def run_command(command):
 
 def hybernate_hypershift_cluster(cluster:oc_cluster, ec2_map:dict):
     # ec2_map = ec2_instances[cluster.region]
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-')]
+    worker_nodes = [ec2_name for ec2_name in ec2_map]
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes if worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
     if len(InstanceIds) > 0:
@@ -125,12 +126,12 @@ def get_instance_status(cluster:oc_cluster, InstanceIds:list):
 def wait_for_rosa_cluster_to_be_hibernated(cluster:oc_cluster, worker_count:int):
     time.sleep(5)
     ec2_map = get_instances_for_region(cluster.region, 'stopped')
-    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+    InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
     while len(InstanceIds) < worker_count:
         print('Worker nodes stopping, please wait...')
         time.sleep(5)
         ec2_map = get_instances_for_region(cluster.region, 'stopped')
-        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.name}-') and worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
+        InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map if worker_node_belongs_to_the_hcp_cluster(ec2_map[ec2_name], cluster.name)]
 
     status_map = get_instance_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['stopped']):

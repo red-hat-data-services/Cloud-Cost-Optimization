@@ -50,9 +50,10 @@ def get_cluster_list(ocm_account:str):
     run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
 
 def worker_node_belongs_to_the_hcp_cluster(ec2_instance:dict, cluster_name:str):
+    """Check if an EC2 instance belongs to a specific HCP cluster """
     result = False
     for tag in ec2_instance['Tags']:
-        if tag['Key'] == 'Name' and tag['Value'].startswith(f'{cluster_name}'):
+        if tag['Key'] == 'api.openshift.com/name' and tag['Value'] == cluster_name:
             result = True
             break
     return result
@@ -79,11 +80,11 @@ def delete_volume(volume_id, region):
 
 def check_instance_status(cluster:oc_cluster, ec2_running_map:dict, ec2_stopped_map:dict):
     # ec2_map = ec2_instances[cluster.region]
-    running_worker_nodes = [ec2_name for ec2_name in ec2_running_map if ec2_name.startswith(f'{cluster.name}-')]
+    running_worker_nodes = [ec2_name for ec2_name in ec2_running_map]
     InstanceIds_running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in running_worker_nodes if
                    worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
 
-    stopped_worker_nodes = [ec2_name for ec2_name in ec2_stopped_map if ec2_name.startswith(f'{cluster.name}-')]
+    stopped_worker_nodes = [ec2_name for ec2_name in ec2_stopped_map]
     InstanceIds_stopped = [ec2_stopped_map[worker_node]['InstanceId'] for worker_node in stopped_worker_nodes if
                    worker_node_belongs_to_the_hcp_cluster(ec2_stopped_map[worker_node], cluster.name)]
 
