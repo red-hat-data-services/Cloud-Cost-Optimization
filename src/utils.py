@@ -91,7 +91,27 @@ def get_instances_for_region(region, current_state):
     """Return all EC2 instances for a given region"""
     ec2_client = boto3.client('ec2', region_name=region)
     filters = [{'Name': 'instance-state-name', 'Values': [current_state]}]
-    ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=1000)
+    ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=10_000)
+    ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
+    ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
+
+    # return a map of instances, keyed by their name tag
+    tagged_instances_map = {}
+    for instance in ec2_map:
+        name_tags = [tag['Value'] for tag in instance.get("Tags", []) if tag['Key'] == 'Name']
+        if name_tags:
+            tagged_instances_map[name_tags[0]] = instance
+    return tagged_instances_map
+
+
+def get_instances_for_region_and_tag(region, current_state, openshift_name):
+    """Return all EC2 instances for a given region"""
+    ec2_client = boto3.client('ec2', region_name=region)
+    filters = [
+        {'Name': 'instance-state-name', 'Values': [current_state]},
+        {"Name": "tag:api.openshift.com/name", 'Values': openshift_name}
+    ]
+    ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=10_000)
     ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
     ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
 

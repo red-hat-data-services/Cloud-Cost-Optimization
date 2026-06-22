@@ -185,8 +185,12 @@ def main():
         target_cluster = target_cluster[0]
 
         print(f"=== Getting EC2 instances for {target_cluster.region} ===", flush=True)
-        ec2_map = utils.get_instances_for_region(target_cluster.region, 'stopped')
-        ec2_running_map = utils.get_instances_for_region(target_cluster.region, 'running')
+        ec2_map = utils.get_instances_for_region_and_tag(target_cluster.region, 'stopped', target_cluster.name)
+        ec2_running_map = utils.get_instances_for_region_and_tag(target_cluster.region, 'running', target_cluster.name)
+
+        print("Running instances:", ec2_running_map, flush=True)
+        print("Stopped instances:", ec2_map, flush=True)
+        return 
 
         print(f"=== Resuming {target_cluster.name} ===", flush=True)
         if target_cluster.hcp == "false":
