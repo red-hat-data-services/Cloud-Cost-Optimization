@@ -159,7 +159,8 @@ def main():
         target_cluster = target_cluster[0]
 
         print(f"=== Getting all instances for region {target_cluster.region} ===", flush=True)
-        ec2_map = utils.get_instances_for_region(target_cluster.region, 'running')
+        ec2_map = utils.get_instances_for_region_and_cluster_name(target_cluster.region, 'running', target_cluster.name)
+        print(ec2_map.keys(), flush=True)
 
         print(f"=== Hibernating {target_cluster.name} ===", flush=True)
         if target_cluster.hcp == "false":
