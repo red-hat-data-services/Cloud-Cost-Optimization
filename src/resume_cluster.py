@@ -71,9 +71,10 @@ def get_ocm_node_pool_information(cluster:utils.OcCluster):
     node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools',
                                        headers={'Authorization': f'Bearer {ocm_api_token}'})
     node_pools = node_pools_response.json()
+    node_pools = {node_pool['id']: {"replicas": node_pool['replicas'], "instance_type": node_pool["aws_node_pool"]["instance_type"]}
+                  for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
     print("=== NODE POOLS ===", flush=True)
     print(node_pools, flush=True)
-    node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
 
 
 def sync_hcp_node_pools(cluster:utils.OcCluster):
