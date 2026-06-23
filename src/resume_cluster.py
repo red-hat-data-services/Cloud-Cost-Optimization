@@ -143,7 +143,7 @@ def fix_hcp_node_pool_miscount(ec2_client, cluster:utils.OcCluster, node_pool_in
             print(f"Waiting 30s to give some time for node pool updates to trigger", flush=True)
             time.sleep(30)
 
-        elif len(n_actual_nodes)>node_pool_info['replicas']:
+        elif n_actual_nodes > n_requested_nodes:
             # if number of actual nodes is too big, where D=desired node count, R=running node count, S=stopped_node count
             #   1) If we already have sufficient running nodes for the requested node count (R>D):
             #     a) terminate all stopped nodes S
