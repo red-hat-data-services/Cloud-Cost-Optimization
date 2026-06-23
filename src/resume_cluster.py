@@ -26,6 +26,9 @@ def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running
     else:
         InstanceIds_Running = []
 
+    get_ocm_node_pool_information(cluster)
+    return
+
     if len(InstanceIds) == 0 and len(InstanceIds_Running) == 0 and wait_for_ready:
         worker_count = sync_hcp_node_pools(cluster)
         wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
@@ -59,6 +62,18 @@ def resume_ipi_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for_ready=Tru
         print(f'Done resuming the cluster {cluster.name}', flush=True)
     else:
         print(f'Cluster {cluster.name} is already running.', flush=True)
+
+
+
+def get_ocm_node_pool_information(cluster:utils.OcCluster):
+    api_server_base_url = 'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
+    ocm_api_token = utils.get_ocm_api_token()
+    node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools',
+                                       headers={'Authorization': f'Bearer {ocm_api_token}'})
+    node_pools = node_pools_response.json()
+    print("=== NODE POOLS ===", flush=True)
+    print(node_pools, flush=True)
+    node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
 
 
 def sync_hcp_node_pools(cluster:utils.OcCluster):
