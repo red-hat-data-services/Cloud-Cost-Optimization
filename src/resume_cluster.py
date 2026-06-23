@@ -17,33 +17,37 @@ def resume_cluster(cluster):
 
 def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running_map=None, wait_for_ready=True):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
+
+    # get all stopped instances associated with this cluster
     instances_stopped = [ec2_map[worker_node] for worker_node in ec2_map
                    if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
     instances_stopped_ids = [v['InstanceId'] for v in instances_stopped]
 
+    # get all running instances associated with this cluster
     if ec2_running_map is not None:
         instances_running = [ec2_running_map[worker_node] for worker_node in ec2_running_map
                                if utils.worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
     else:
         instances_running = []
 
+    # get the requested node pools for this cluster from OCM
     node_pool_info = get_ocm_node_pool_information(cluster)
     total_requested_nodes = sum(v['replicas'] for v in node_pool_info.values())
     actual_nodes = len(instances_stopped) + len(instances_running)
 
     if actual_nodes != total_requested_nodes:
-        print(f"Resolving node count mismatch. "
-              f"Requested nodes: {total_requested_nodes}. Actual nodes: {actual_nodes}, "
-              f"({len(instances_running)} running and {len(instances_stopped)} stopped nodes).")
-
+        print("=== Resolving node count mismatch ===",flush=True)
+        print(f"Requested nodes: {total_requested_nodes}",flush=True)
+        print(f"Actual nodes: {actual_nodes}: {len(instances_running)} running, {len(instances_stopped)} stopped.", flush=True)
         fix_hcp_node_pool_miscount(ec2_client, cluster, node_pool_info, instances_running, instances_stopped)
+
     elif actual_nodes == total_requested_nodes and len(instances_stopped) > 0:
-        print(f'Starting worker instances of cluster {cluster.name}: {instances_stopped_ids}', flush=True)
+        print(f'Starting stopped instances of cluster {cluster.name}: {instances_stopped_ids}', flush=True)
         ec2_client.start_instances(InstanceIds=instances_stopped_ids)
+
     else:
         print(f'Cluster {cluster.name} is already running.', flush=True)
         return
-
     if wait_for_ready:
         wait_for_rosa_cluster_to_be_ready(cluster, total_requested_nodes)
         print(f'Done resuming the cluster {cluster.name}', flush=True)
