@@ -17,55 +17,54 @@ def resume_cluster(cluster):
 
 def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running_map=None, wait_for_ready=True):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
-    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in ec2_map
+    instances_stopped = [ec2_map[worker_node] for worker_node in ec2_map
                    if utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
+    instances_stopped_ids = [v['InstanceId'] for v in instances_stopped]
 
-    if wait_for_ready and ec2_running_map is not None:
-        InstanceIds_Running = [ec2_running_map[worker_node]['InstanceId'] for worker_node in ec2_running_map
+    if ec2_running_map is not None:
+        instances_running = [ec2_running_map[worker_node] for worker_node in ec2_running_map
                                if utils.worker_node_belongs_to_the_hcp_cluster(ec2_running_map[worker_node], cluster.name)]
     else:
-        InstanceIds_Running = []
+        instances_running = []
 
-    get_ocm_node_pool_information(cluster)
+    print("== RUNNING INSTANCES ==")
+    print(instances_running,flush=True)
+    print("== STOPPED INSTANCES ==")
+    print(instances_stopped, flush=True)
     return
 
-    if len(InstanceIds) == 0 and len(InstanceIds_Running) == 0 and wait_for_ready:
-        worker_count = sync_hcp_node_pools(cluster)
+
+    node_pool_info = get_ocm_node_pool_information(cluster)
+    total_requested_nodes = sum(v['replicas'] for v in node_pool_info.values())
+    actual_nodes = len(instances_stopped) + len(instances_running)
+
+    if actual_nodes != total_requested_nodes:
+        print(f"Correcting mismatch in node count. "
+              f"Requested nodes: {total_requested_nodes}. Actual nodes: {actual_nodes}, "
+              f"({len(instances_running)} running and {len(instances_stopped)} stopped nodes).")
+        worker_count = sync_hcp_node_pools(cluster, node_pool_info, instances_running, instances_stopped)
+    elif actual_nodes == total_requested_nodes and len(instances_stopped) > 0:
+        print(f'Starting worker instances of cluster {cluster.name}: {instances_stopped_ids}', flush=True)
+        worker_count = len(instances_stopped)
+        ec2_client.start_instances(InstanceIds=instances_stopped_ids)
+    else:
+        print(f'Cluster {cluster.name} is already running.', flush=True)
+        return
+
+    if wait_for_ready:
         wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
-    elif len(InstanceIds) > 0:
-        print(f'Starting worker instances of cluster {cluster.name}: {InstanceIds}', flush=True)
-        worker_count = len(InstanceIds)
-        ec2_client.start_instances(InstanceIds=InstanceIds)
-        if wait_for_ready:
-            wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
         print(f'Done resuming the cluster {cluster.name}', flush=True)
-    else:
-        print(f'Cluster {cluster.name} is already running.', flush=True)
 
 
-def resume_ipi_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for_ready=True):
+def get_ocm_node_pool_information(cluster:utils.OcCluster) -> dict:
+    """
+    Get the requested node pool size and instance kind for each node pool in a cluster
 
-    # The startswith pre-filter may miss IPI nodes — it caused a bug in HCP clusters.
-    # If IPI nodes aren't being correctly resumed, investigate this filter first.
-    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
+    Returns a dict of node pool ID - > {"replicas": requested replica count, "instance_type": AWS instance type}
 
-    ec2_client = boto3.client('ec2', region_name=cluster.region)
-    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes
-                   if utils.worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
-
-    if len(InstanceIds) > 0:
-        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds, flush=True)
-        worker_count = len(InstanceIds)
-        ec2_client.start_instances(InstanceIds=InstanceIds)
-        if wait_for_ready:
-            wait_for_ipi_cluster_to_be_ready(cluster, worker_count)
-        print(f'Done resuming the cluster {cluster.name}', flush=True)
-    else:
-        print(f'Cluster {cluster.name} is already running.', flush=True)
-
-
-
-def get_ocm_node_pool_information(cluster:utils.OcCluster):
+    e.g.,:
+    {"workers": {"replicas": 2, "instance_type": "m5.2xlarge"}
+    """
     api_server_base_url = 'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
     ocm_api_token = utils.get_ocm_api_token()
     node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools',
@@ -73,21 +72,15 @@ def get_ocm_node_pool_information(cluster:utils.OcCluster):
     node_pools = node_pools_response.json()
     node_pools = {node_pool['id']: {"replicas": node_pool['replicas'], "instance_type": node_pool["aws_node_pool"]["instance_type"]}
                   for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
-    print("=== NODE POOLS ===", flush=True)
-    print(node_pools, flush=True)
+    return node_pools
 
 
-def sync_hcp_node_pools(cluster:utils.OcCluster):
-    api_server_base_url = 'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
-    ocm_api_token = utils.get_ocm_api_token()
-    node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools',
-                                       headers={'Authorization': f'Bearer {ocm_api_token}'})
-    node_pools = node_pools_response.json()
-    node_pools = {node_pool['id']:node_pool['replicas'] for node_pool in node_pools['items'] if node_pool['kind'] == 'NodePool'}
-    totalNodes = 0
-
+def sync_hcp_node_pools(cluster:utils.OcCluster, node_pool_information: dict, instances_running: list, instances_stopped: list):
     print("=== Syncing node pools ===", flush=True)
-    for id, replicas in node_pools.items():
+    for id, node_pool_data in node_pool_information.items():
+
+
+
         newReplicas = replicas+1 if replicas <= 2 else replicas-1
         payload = {'id': id, 'labels': {}, 'taints': [], 'replicas': newReplicas}
         response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
@@ -130,6 +123,27 @@ def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int)
         print('\tWaiting for worker nodes to report status=ok, will check again in 5s...', flush=True)
         time.sleep(5)
         status_map = get_instance_and_system_status(cluster, InstanceIds)
+
+
+def resume_ipi_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for_ready=True):
+
+    # The startswith pre-filter may miss IPI nodes — it caused a bug in HCP clusters.
+    # If IPI nodes aren't being correctly resumed, investigate this filter first.
+    worker_nodes = [ec2_name for ec2_name in ec2_map if ec2_name.startswith(f'{cluster.internal_name}-')]
+
+    ec2_client = boto3.client('ec2', region_name=cluster.region)
+    InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in worker_nodes
+                   if utils.worker_node_belongs_to_the_ipi_cluster(ec2_map[worker_node], cluster.internal_name)]
+
+    if len(InstanceIds) > 0:
+        print(f'Starting Worker Instances of cluster {cluster.name}', InstanceIds, flush=True)
+        worker_count = len(InstanceIds)
+        ec2_client.start_instances(InstanceIds=InstanceIds)
+        if wait_for_ready:
+            wait_for_ipi_cluster_to_be_ready(cluster, worker_count)
+        print(f'Done resuming the cluster {cluster.name}', flush=True)
+    else:
+        print(f'Cluster {cluster.name} is already running.', flush=True)
 
 
 def wait_for_ipi_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
