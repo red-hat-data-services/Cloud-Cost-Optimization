@@ -27,33 +27,30 @@ def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running
     else:
         instances_running = []
 
-    print("== RUNNING INSTANCES ==")
-    print(instances_running,flush=True)
-    print("== STOPPED INSTANCES ==")
-    print(instances_stopped, flush=True)
-    return
-
-
     node_pool_info = get_ocm_node_pool_information(cluster)
     total_requested_nodes = sum(v['replicas'] for v in node_pool_info.values())
     actual_nodes = len(instances_stopped) + len(instances_running)
 
     if actual_nodes != total_requested_nodes:
-        print(f"Correcting mismatch in node count. "
+        print(f"Resolving node count mismatch. "
               f"Requested nodes: {total_requested_nodes}. Actual nodes: {actual_nodes}, "
               f"({len(instances_running)} running and {len(instances_stopped)} stopped nodes).")
-        worker_count = sync_hcp_node_pools(cluster, node_pool_info, instances_running, instances_stopped)
+
+        fix_hcp_node_pool_miscount(ec2_client, cluster, node_pool_info, instances_running, instances_stopped)
     elif actual_nodes == total_requested_nodes and len(instances_stopped) > 0:
         print(f'Starting worker instances of cluster {cluster.name}: {instances_stopped_ids}', flush=True)
-        worker_count = len(instances_stopped)
         ec2_client.start_instances(InstanceIds=instances_stopped_ids)
     else:
         print(f'Cluster {cluster.name} is already running.', flush=True)
         return
 
     if wait_for_ready:
-        wait_for_rosa_cluster_to_be_ready(cluster, worker_count)
+        wait_for_rosa_cluster_to_be_ready(cluster, total_requested_nodes)
         print(f'Done resuming the cluster {cluster.name}', flush=True)
+
+
+def get_api_server_base_url(ocm_account: str):
+    return 'https://api.openshift.com/api' if ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
 
 
 def get_ocm_node_pool_information(cluster:utils.OcCluster) -> dict:
@@ -65,7 +62,7 @@ def get_ocm_node_pool_information(cluster:utils.OcCluster) -> dict:
     e.g.,:
     {"workers": {"replicas": 2, "instance_type": "m5.2xlarge"}
     """
-    api_server_base_url = 'https://api.openshift.com/api' if cluster.ocm_account == 'PROD' else 'https://api.stage.openshift.com/api'
+    api_server_base_url = get_api_server_base_url(cluster.ocm_account)
     ocm_api_token = utils.get_ocm_api_token()
     node_pools_response = requests.get(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools',
                                        headers={'Authorization': f'Bearer {ocm_api_token}'})
@@ -75,35 +72,113 @@ def get_ocm_node_pool_information(cluster:utils.OcCluster) -> dict:
     return node_pools
 
 
-def sync_hcp_node_pools(cluster:utils.OcCluster, node_pool_information: dict, instances_running: list, instances_stopped: list):
-    print("=== Syncing node pools ===", flush=True)
-    for id, node_pool_data in node_pool_information.items():
+def set_node_pool_to_n_replicas(url: str, token: str, cluster_id: str, node_pool_id, n_replicas: int):
+    """
+    Update a node to pool to the requested replica count
+    """
+    payload = {'id': node_pool_id, 'labels': {}, 'taints': [], 'replicas': len(n_replicas)}
+    response = requests.patch(f'{url}/clusters_mgmt/v1/clusters/{cluster_id}/node_pools/{node_pool_id}',
+                              data=json.dumps(payload),
+                              headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
+    if response.status_code != 200:
+        raise RuntimeError(f"Could not set node pool {id} replicas to {n_replicas}, error {response.status_code}: {response.text}")
 
 
+def filter_instances_and_get_count(instance_list, instance_type):
+    """
+    Helper function to return:
+        - the sublist of instances that match a specified instance type
+        - the count of such instances
+    """
+    matching_ids, n_matching_nodes = [], 0
+    for n in instance_list:
+        if n["InstanceType"] == instance_type:
+            matching_ids.append(n["InstanceId"])
+    return matching_ids, n_matching_nodes
 
-        newReplicas = replicas+1 if replicas <= 2 else replicas-1
-        payload = {'id': id, 'labels': {}, 'taints': [], 'replicas': newReplicas}
-        response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
-                                  data=json.dumps(payload),
-                                  headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
 
-        print(f'synced the machine pool {id} with the new replica count {newReplicas} for cluster {cluster.name}', flush=True)
-        if response.status_code == 200:
-            totalNodes += newReplicas
-            print(f'now total nodes are {totalNodes}', flush=True)
+def fix_hcp_node_pool_miscount(ec2_client, cluster:utils.OcCluster, node_pool_information: dict, running_instances: list, stopped_instances: list):
+    """
+    Fix a mismatch between the number of existing instances (running or stopped) and the desired
+    node pool size
+    """
+    api_server_base_url = get_api_server_base_url(cluster.ocm_account)
+    ocm_api_token = utils.get_ocm_api_token()
+    node_pool_setter = lambda np_id, n: set_node_pool_to_n_replicas(
+        url=api_server_base_url,
+        token=ocm_api_token,
+        cluster_id=cluster.id,
+        node_pool_id=np_id,
+        n_replicas=n)
 
-        payload = {'id': id, 'labels': {}, 'taints': [], 'replicas': replicas}
-        response = requests.patch(f'{api_server_base_url}/clusters_mgmt/v1/clusters/{cluster.id}/node_pools/{id}',
-                                  data=json.dumps(payload),
-                                  headers={'Authorization': f'Bearer {ocm_api_token}', 'Content-Type': 'application/json'})
+    for node_pool_id, node_pool_info in node_pool_information.items():
+        n_requested_nodes = node_pool_info['replicas']
 
-        print(f'reset the machine pool {id} with the original replica count {replicas} for cluster {cluster.name}', flush=True)
-        if response.status_code == 200:
-            totalNodes += replicas - newReplicas
-            print(f'now total nodes are back to {totalNodes}', flush=True)
+        matching_running_ids, n_matching_running_nodes = filter_instances_and_get_count(running_instances, node_pool_info['instance_type'])
+        matching_stopped_ids, n_matching_stopped_nodes = filter_instances_and_get_count(running_instances, node_pool_info['instance_type'])
+        n_actual_nodes = n_matching_running_nodes + n_matching_stopped_nodes
 
-    time.sleep(30)
-    return totalNodes
+        if n_actual_nodes<n_requested_nodes:
+            # If number of actual nodes is too small:
+            #   1) start all stopped nodes
+            #   2) prune the machine pool down to the existing node count
+            #   3) reset it back to the desired amount,
+            # The prune+reset should trigger the creation of the missing nodes
+            print(f"=== Rectifying node undersupply for node pool {node_pool_id} ===", flush=True)
+
+            print(f"Starting stopped nodes of node pool {node_pool_id}: {matching_stopped_ids }", flush=True)
+            ec2_client.start_instances(InstanceIds=matching_stopped_ids)
+
+            print(f"Temporarily pruning node pool {node_pool_id} to {n_actual_nodes}", flush=True)
+            node_pool_setter(node_pool_id, n_actual_nodes)
+            time.sleep(1)
+
+            print(f"Resetting node pool {node_pool_id} to {n_requested_nodes}", flush=True)
+            node_pool_setter(node_pool_id, n_requested_nodes)
+
+            print(f"Waiting 30s to give some time for node pool updates to trigger", flush=True)
+            time.sleep(30)
+
+        elif len(n_actual_nodes)>node_pool_info['replicas']:
+            # if number of actual nodes is too big, where D=desired node count, R=running node count, S=stopped_node count
+            #   1) If we already have sufficient running nodes for the requested node count (R>D):
+            #     a) terminate all stopped nodes S
+            #     b) terminate any extra running nodes R-D
+            #      Outcome: R-(R-D) + (S-S) = D nodes
+            #   2) Else:
+            #     a) leave all running nodes R running
+            #     b) terminate (R+S)-D stopped nodes
+            #     c) start the remaining S-((R+S)-D) nodes
+            #       Outcome: R + (S - ((R+S)-D)) = D nodes
+
+            print(f"=== Rectifying node oversupply for node pool {node_pool_id} ===", flush=True)
+
+            # if we've got more running nodes than needed, terminate all stopped nodes and the extra running
+            if n_matching_running_nodes>=n_requested_nodes:
+                if n_matching_running_nodes>n_requested_nodes:
+                    running_nodes_to_terminate = matching_running_ids[n_requested_nodes:]
+                    print(f"Terminating extra running instances: {running_nodes_to_terminate}", flush=True)
+                    ec2_client.terminate_instances(InstanceIds=running_nodes_to_terminate)
+
+                if n_matching_stopped_nodes>0:
+                    print(f"Terminating all stopped instances: {matching_stopped_ids}", flush=True)
+                    ec2_client.terminate_instances(InstanceIds=matching_stopped_ids)
+            else:
+                # some combination of running and stopped nodes overshoots the desired amount
+                overshoot = n_actual_nodes - n_requested_nodes
+
+                # since we've checked that there are fewer running nodes than desired
+                # we can always fix the overshoot by terminating stopped nodes
+                stopped_nodes_to_terminate = matching_stopped_ids[:overshoot]
+                print(f"Terminating extra stopped instances: {stopped_nodes_to_terminate}", flush=True)
+                ec2_client.terminate_instances(InstanceIds=stopped_nodes_to_terminate)
+
+                # start remaining instances
+                stopped_nodes_to_start = matching_stopped_ids[overshoot:]
+                print(f"Starting remaining stopped instances: {stopped_nodes_to_start}", flush=True)
+                ec2_client.start_instances(InstanceIds=stopped_nodes_to_start)
+        else:
+            print(f"Node pool {node_pool_id} already has the correct number of nodes, skipping.", flush=True)
 
 
 def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
