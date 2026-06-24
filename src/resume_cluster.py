@@ -80,12 +80,12 @@ def set_node_pool_to_n_replicas(url: str, token: str, cluster_id: str, node_pool
     """
     Update a node to pool to the requested replica count
     """
-    payload = {'id': node_pool_id, 'labels': {}, 'taints': [], 'replicas': len(n_replicas)}
+    payload = {'id': node_pool_id, 'labels': {}, 'taints': [], 'replicas': n_replicas}
     response = requests.patch(f'{url}/clusters_mgmt/v1/clusters/{cluster_id}/node_pools/{node_pool_id}',
                               data=json.dumps(payload),
                               headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
     if response.status_code != 200:
-        raise RuntimeError(f"Could not set node pool {id} replicas to {n_replicas}, error {response.status_code}: {response.text}")
+        raise RuntimeError(f"Could not set node pool {node_pool_id} replicas to {n_replicas}, error {response.status_code}: {response.text}")
 
 
 def filter_instances_and_get_count(instance_list, instance_type):
@@ -94,11 +94,11 @@ def filter_instances_and_get_count(instance_list, instance_type):
         - the sublist of instances that match a specified instance type
         - the count of such instances
     """
-    matching_ids, n_matching_nodes = [], 0
+    matching_ids = []
     for n in instance_list:
         if n["InstanceType"] == instance_type:
             matching_ids.append(n["InstanceId"])
-    return matching_ids, n_matching_nodes
+    return matching_ids, len(matching_ids)
 
 
 def fix_hcp_node_pool_miscount(ec2_client, cluster:utils.OcCluster, node_pool_information: dict, running_instances: list, stopped_instances: list):
@@ -119,7 +119,7 @@ def fix_hcp_node_pool_miscount(ec2_client, cluster:utils.OcCluster, node_pool_in
         n_requested_nodes = node_pool_info['replicas']
 
         matching_running_ids, n_matching_running_nodes = filter_instances_and_get_count(running_instances, node_pool_info['instance_type'])
-        matching_stopped_ids, n_matching_stopped_nodes = filter_instances_and_get_count(running_instances, node_pool_info['instance_type'])
+        matching_stopped_ids, n_matching_stopped_nodes = filter_instances_and_get_count(stopped_instances, node_pool_info['instance_type'])
         n_actual_nodes = n_matching_running_nodes + n_matching_stopped_nodes
 
         if n_actual_nodes<n_requested_nodes:
@@ -185,12 +185,15 @@ def fix_hcp_node_pool_miscount(ec2_client, cluster:utils.OcCluster, node_pool_in
             print(f"Node pool {node_pool_id} already has the correct number of nodes, skipping.", flush=True)
 
 
-def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
+def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int, timeout_seconds:int=1200):
+    deadline = time.time() + timeout_seconds
     time.sleep(15)
     ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'running', cluster.name)
     InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map]
     print(f"Waiting for {len(InstanceIds)} worker nodes to start, please wait...", flush=True)
     while len(InstanceIds) < worker_count:
+        if time.time() > deadline:
+            raise TimeoutError(f"Timed out waiting for {worker_count} nodes to start (only {len(InstanceIds)} running after {timeout_seconds}s)")
         print(f'\t{len(InstanceIds)}/{worker_count} nodes running, will check again in 5s...', flush=True)
         time.sleep(5)
         ec2_map = utils.get_instances_for_region_and_cluster_name(cluster.region, 'running', cluster.name)
@@ -199,6 +202,8 @@ def wait_for_rosa_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int)
 
     status_map = get_instance_and_system_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['ok_ok']):
+        if time.time() > deadline:
+            raise TimeoutError(f"Timed out waiting for nodes to report ok status after {timeout_seconds}s. Current: {status_map}")
         print('\tWaiting for worker nodes to report status=ok, will check again in 5s...', flush=True)
         time.sleep(5)
         status_map = get_instance_and_system_status(cluster, InstanceIds)
@@ -225,13 +230,16 @@ def resume_ipi_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for_ready=Tru
         print(f'Cluster {cluster.name} is already running.', flush=True)
 
 
-def wait_for_ipi_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
+def wait_for_ipi_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int, timeout_seconds:int=1200):
+    deadline = time.time() + timeout_seconds
     time.sleep(15)
     ec2_map = utils.get_instances_for_region(cluster.region, 'running')
     InstanceIds = [ec2_map[ec2_name]['InstanceId'] for ec2_name in ec2_map
                    if ec2_name.startswith(f'{cluster.internal_name}-')
                    and utils.worker_node_belongs_to_the_ipi_cluster(ec2_map[ec2_name], cluster.internal_name)]
     while len(InstanceIds) < worker_count:
+        if time.time() > deadline:
+            raise TimeoutError(f"Timed out waiting for {worker_count} nodes to start (only {len(InstanceIds)} running after {timeout_seconds}s)")
         print(f'\t{len(InstanceIds)}/{worker_count} nodes running, will check again in 5s...', flush=True)
         time.sleep(5)
         ec2_map = utils.get_instances_for_region(cluster.region, 'running')
@@ -242,6 +250,8 @@ def wait_for_ipi_cluster_to_be_ready(cluster:utils.OcCluster, worker_count:int):
 
     status_map = get_instance_and_system_status(cluster, InstanceIds)
     while set(status_map.values()) != set(['ok_ok']):
+        if time.time() > deadline:
+            raise TimeoutError(f"Timed out waiting for nodes to report ok status after {timeout_seconds}s. Current: {status_map}")
         print('Worker nodes initializing, please wait...', flush=True)
         time.sleep(5)
         status_map = get_instance_and_system_status(cluster, InstanceIds)
