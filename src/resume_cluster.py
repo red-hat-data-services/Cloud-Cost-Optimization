@@ -80,7 +80,7 @@ def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, ec2_running
         print(f'\tStarting stopped instances of cluster {cluster.name}: {instances_stopped_ids}', flush=True)
 
         failed_starts = 0
-        for stopped_node in instances_stopped_ids:
+        for stopped_node in list(instances_stopped_ids):
             try:
                 ec2_client.start_instances(InstanceIds=[stopped_node])
             except botocore.exceptions.ClientError as e:
@@ -206,15 +206,15 @@ def robust_node_start(ec2_client, cluster, nodes_to_start: list[str], node_pool_
             ec2_client.terminate_instances(InstanceIds=[stopped_node])
             failed_starts += 1
 
-        if failed_starts > 0:
-            trigger_ocm_reprovision_of_missing_nodes(
-                cluster=cluster,
-                node_pool_setter=node_pool_setter,
-                node_pool_id=node_pool_id,
-                instance_type=instance_type,
-                nodes_present=nodes_desired - failed_starts,
-                nodes_desired=nodes_desired
-            )
+    if failed_starts > 0:
+        trigger_ocm_reprovision_of_missing_nodes(
+            cluster=cluster,
+            node_pool_setter=node_pool_setter,
+            node_pool_id=node_pool_id,
+            instance_type=instance_type,
+            nodes_present=nodes_desired - failed_starts,
+            nodes_desired=nodes_desired
+        )
 
 
 
