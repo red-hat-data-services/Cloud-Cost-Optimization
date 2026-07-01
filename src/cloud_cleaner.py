@@ -1,80 +1,45 @@
 import json
+import boto3
 
-import boto3, os
-
-class oc_cluster:
-    def __init__(self, cluster_detail, ocm_account):
-        details = cluster_detail.split(' ')
-        details = [detail for detail in details if detail]
-        self.id = details[0]
-        self.name = details[1]
-        self.api_url = details[2]
-        self.ocp_version = details[3]
-        self.type = details[4]
-        self.hcp = details[5]
-        self.cloud_provider = details[6]
-        self.region = details[7]
-        self.status = details[8]
-        self.nodes = []
-        self.ocm_account = ocm_account
+import utils
 
 def get_all_cluster_details(ocm_account:str, clusters:list):
-    get_cluster_list(ocm_account)
+    utils.get_cluster_list(ocm_account)
     clusters_details = open(f'clusters_{ocm_account}.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail, ocm_account))
+        clusters.append(utils.OcCluster(cluster_detail, ocm_account))
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
 
-def get_cluster_list(ocm_account:str):
-    run_command(f'script/./get_all_cluster_details.sh {ocm_account}')
-
-def run_command(command):
-    output = os.popen(command).read()
-    print(output)
-    return output
-
-def get_instances_for_region(region, current_state):
-    ec2_client = boto3.client('ec2', region_name=region)
-    filters = [{'Name': 'instance-state-name', 'Values': [current_state]}]
-    ec2_map = ec2_client.describe_instances(Filters=filters, MaxResults=1000)
-    ec2_map = [ec2 for ec2 in ec2_map['Reservations']]
-    ec2_map = [instance for ec2 in ec2_map for instance in ec2['Instances']]
-    # ec2_map = {list(filter(lambda obj: obj['Key'] == 'Name', instance['Tags']))[0]['Value']: instance for instance in
-    #            ec2_map}
-    print(region, len(ec2_map))
-    return ec2_map
-
-def get_all_instances(ec2_instances, current_state):
-    client = boto3.client('ec2', region_name='us-east-1')
-    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
-    for region in regions:
-        ec2_instances[region] = get_instances_for_region(region, current_state)
 
 def get_all_ebs_volumes(volumes, current_state):
     client = boto3.client('ec2', region_name='us-east-1')
     regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
     for region in regions:
         volumes[region] = get_ebs_volume_for_region(region, current_state)
-def check_if_given_tag_exists(tag_name, volume):
+
+
+def check_if_given_tag_exists_in_volume(tag_name, volume):
     result = False
     if 'Tags' in volume:
         tags = volume['Tags']
-        print(tags)
         for tag in tags:
             if tag['Key'] == tag_name:
                 result = True
                 break
     return result
+
+
 def get_ebs_volume_for_region(region, current_state):
     ec2_client = boto3.client('ec2', region_name=region)
     filters = [{'Name': 'status', 'Values': [current_state]}]
     volume_map = ec2_client.describe_volumes(Filters=filters, MaxResults=500)
-    volume_map = [volume for volume in volume_map['Volumes'] if not check_if_given_tag_exists(
+    volume_map = [volume for volume in volume_map['Volumes'] if not check_if_given_tag_exists_in_volume(
                 'KubernetesCluster', volume)]
     volume_map = {volume['VolumeId']: volume for volume in
                volume_map}
     print(region, len(volume_map))
     return volume_map
+
 
 def cleanup_available_volumes(volumes:dict):
     for region, ebs_volumes in volumes.items():
@@ -85,11 +50,13 @@ def cleanup_available_volumes(volumes:dict):
             print(f'Deleting volume {volumeId}')
             # ec2_client.delete_volume(VolumeId=volumeId)
 
+
 def get_all_elbs(elbs):
     client = boto3.client('ec2', region_name='us-east-1')
     regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
     for region in regions:
         elbs[region] = get_elbs_for_region(region)
+
 
 def get_elbs_for_region(region):
     aws_client = boto3.client('elb', region_name=region)
@@ -107,6 +74,7 @@ def get_elbs_for_region(region):
 
     return all_elb_map
 
+
 def get_target_groups_health(LoadBalancerArn, region):
     aws_client = boto3.client('elbv2', region_name=region)
     target_groups = aws_client.describe_target_groups(LoadBalancerArn=LoadBalancerArn)
@@ -118,6 +86,7 @@ def get_target_groups_health(LoadBalancerArn, region):
                 healths.append(target['TargetHealth']['State'])
     return healths
 
+
 def name_starts_with_existing_cluster(name, cluster_names:list[str]):
     result = False
     for cluster_name in cluster_names:
@@ -125,6 +94,7 @@ def name_starts_with_existing_cluster(name, cluster_names:list[str]):
             result = True
             break
     return result
+
 
 def elb_belongs_to_existing_cluster( cluster_names:list[str], tags:dict):
     result = False
@@ -174,7 +144,7 @@ def get_all_tags_for_albs(ResourceArns:list, region):
 
     return tags
 
-def cleanup_inactive_elbs(elbs:dict[dict], clusters:dict[oc_cluster]):
+def cleanup_inactive_elbs(elbs:dict[dict], clusters:dict[utils.OcCluster]):
     rosa_clusters_ids = [cluster.id for cluster in clusters if cluster.type == 'rosa']
     osd_cluster_names = [cluster.name for cluster in clusters if cluster.type == 'osd']
     all_cluster_names = [cluster.name for cluster in clusters]
@@ -274,13 +244,6 @@ def cleanup_all_netoworking_data(ec2_running_instances:dict, ec2_stopped_instanc
         all_elastic_ip_addresses  =  ec2_client.describe_addresses()
         all_elastic_ip_addresses = [elastic_ip_address['AllocationId'] for elastic_ip_address in all_elastic_ip_addresses['Addresses']]
         print('elastic_ip_addresses', len(all_elastic_ip_addresses), len(associated_elastic_ip_addresses))
-
-
-
-
-
-
-
 
 
 def main():
