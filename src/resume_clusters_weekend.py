@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 import utils
@@ -21,9 +22,15 @@ def main():
 
     print("=== Resuming clusters ===", flush=True)
     resumed_clusters = []
-    for cluster in clusters_to_resume:
-        resume_generic_cluster(cluster)
-        resumed_clusters.append(cluster.__dict__)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        future_to_cluster = {executor.submit(resume_generic_cluster, c): c for c in clusters_to_resume}
+        for future in as_completed(future_to_cluster):
+            cluster = future_to_cluster[future]
+            try:
+                future.result()
+                resumed_clusters.append(cluster.__dict__)
+            except Exception as e:
+                print(f"ERROR: Failed to resume cluster {cluster.name}: {e}", flush=True)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import re
+import threading
 import time
 from enum import Enum
 from typing import Union, Optional
@@ -227,9 +228,12 @@ def delete_volume(volume_id, region):
 
 
 # === AUTH =========================================================================================
+_ocm_token_lock = threading.Lock()
+
 def get_ocm_api_token():
-    if not os.path.isfile('ocm_token.txt'):
-        run_command(f'script/./get_ocm_token.sh')
+    with _ocm_token_lock:
+        if not os.path.isfile('ocm_token.txt'):
+            run_command(f'script/./get_ocm_token.sh')
     ocm_api_token = str(open('ocm_token.txt').read()).strip('\n')
     return ocm_api_token
 

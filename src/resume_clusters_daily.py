@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import utils
 from hibernate_cluster import get_all_cluster_details
 from resume_cluster import resume_generic_cluster
@@ -25,11 +27,19 @@ def main():
                 cluster.inactive_hours_end = cluster_inactive_hours_end
 
     print("=== Resuming clusters ===", flush=True)
+    clusters_to_resume = [c for c in clusters
+                          if c.inactive_hours_end and utils.within_two_hour_window_after(c.inactive_hours_end, default_decision=False)]
+
     resumed_clusters = []
-    for cluster in clusters:
-        if cluster.inactive_hours_end and utils.within_two_hour_window_after(cluster.inactive_hours_end, default_decision=False):
-            resume_generic_cluster(cluster)
-            resumed_clusters.append(cluster.__dict__)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        future_to_cluster = {executor.submit(resume_generic_cluster, c): c for c in clusters_to_resume}
+        for future in as_completed(future_to_cluster):
+            cluster = future_to_cluster[future]
+            try:
+                future.result()
+                resumed_clusters.append(cluster.__dict__)
+            except Exception as e:
+                print(f"ERROR: Failed to resume cluster {cluster.name}: {e}", flush=True)
 
 
 if __name__ == '__main__':
