@@ -8,6 +8,8 @@ import utils
 from utils import InstanceState
 
 
+REATTEMPT_THRESHOLD = 3
+
 def get_all_cluster_details(ocm_account:str):
     utils.get_cluster_list(ocm_account)
     clusters = []
@@ -28,7 +30,7 @@ def hibernate_generic_cluster(cluster):
           flush=True)
     ec2_map = utils.get_instances(
         cluster=cluster,
-        current_state=[InstanceState.running, InstanceState.pending],
+        current_state=[InstanceState.running, InstanceState.pending, InstanceState.stopping],
     )
 
     print(f"=== Hibernating {cluster.name} ===", flush=True)
@@ -71,7 +73,8 @@ def hibernate_ipi_cluster(cluster, ec2_map:dict):
     return result
 
 
-def hibernate_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for_stop=True, cleanup_volumes=True):
+def hibernate_hypershift_cluster(cluster: utils.OcCluster, ec2_map: dict, wait_for_stop=True, cleanup_volumes=True,
+                                 attempts: int = 0):
     ec2_client = boto3.client('ec2', region_name=cluster.region)
     InstanceIds = [ec2_map[worker_node]['InstanceId'] for worker_node in ec2_map if
                    utils.worker_node_belongs_to_the_hcp_cluster(ec2_map[worker_node], cluster.name)]
@@ -79,9 +82,18 @@ def hibernate_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for
     if len(InstanceIds) > 0:
         print(f'Stopping running worker instances of cluster {cluster.name}: {InstanceIds}', flush=True)
         worker_count = len(InstanceIds)
-        ec2_client.stop_instances(InstanceIds=InstanceIds)
+        running_instances = utils.group_ec2_instances_by_state(ec2_map).get(InstanceState.running, [])
+        ec2_client.stop_instances(InstanceIds=running_instances)
+
         if wait_for_stop:
-            wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
+            needs_reattempt = wait_for_rosa_cluster_to_be_hibernated(cluster, worker_count)
+            if needs_reattempt and attempts < REATTEMPT_THRESHOLD:
+                hibernate_hypershift_cluster(cluster, ec2_map, wait_for_stop=wait_for_stop,
+                                             cleanup_volumes=cleanup_volumes, attempts=attempts + 1)
+            elif needs_reattempt and attempts >= REATTEMPT_THRESHOLD:
+                raise RuntimeError('Cluster instances kept restarting - this can happen if the cluster has machine pool auto-repair turned on.')
+
+
         if cleanup_volumes:
             root_devices = {inst['InstanceId']: inst['RootDeviceName'] for inst in ec2_map.values() if inst['InstanceId'] in InstanceIds}
             filters = [{'Name': 'attachment.instance-id', 'Values': InstanceIds}]
@@ -102,22 +114,45 @@ def hibernate_hypershift_cluster(cluster:utils.OcCluster, ec2_map:dict, wait_for
         print(f'Cluster {cluster.name} is already hibernated.', flush=True)
 
 
-def wait_for_rosa_cluster_to_be_hibernated(cluster:utils.OcCluster, worker_count:int):
+def wait_for_rosa_cluster_to_be_hibernated(cluster:utils.OcCluster, worker_count:int) -> bool:
+    """
+    returns bool, indicating if we need to reattempt the hibernation
+        - True: We need to reattempt the hibernation
+        - False: Hibernation successful
+    """
+
     time.sleep(15)
     ec2_map = utils.get_instances(cluster=cluster)
     states = utils.group_ec2_instances_by_state(ec2_map)
 
     print(f"Waiting for {worker_count} worker nodes to stop, please wait...", flush=True)
-    while len(states[InstanceState.stopped]) < worker_count:
+    loops = 0
+    while len(states.get(InstanceState.stopped, [])) < worker_count:
         print(f"\t{len(states[InstanceState.stopped])}/{worker_count} nodes are stopped.", flush=True)
         utils.print_ec2_instance_state(ec2_map, prefix="\t\t", filtered_states=[InstanceState.terminated])
 
         time.sleep(5)
         ec2_map = utils.get_instances(cluster=cluster)
         states = utils.group_ec2_instances_by_state(ec2_map)
+        state_counts = {k: len(states.get(k, [])) for k in InstanceState}
+
+        # check for hibernation feasibility
+        if state_counts[InstanceState.stopped] + state_counts[InstanceState.stopping] >= worker_count:
+            # hibernate has chance of success
+            pass
+        elif loops>6 and state_counts[InstanceState.running] + state_counts[InstanceState.pending] > 0:
+            # after 30s, there are still running or pending nodes - instance stop was not successful or the instances restarted
+            print(f"\tSome instances are still running or pending (this could be caused by machine-pool auto-repair), retrying hibernation now...", flush=True)
+            return True
+        elif state_counts[InstanceState.running] + state_counts[InstanceState.pending] + states.get[InstanceState.stopping] + states.get[InstanceState.shutting_down] == 0:
+            # alternative stop condition - not necessarily a clean hibernate, but we no longer need to wait
+            print(f"\tAll remaining nodes are either stopped or terminated. Cluster is no longer running.", flush=True)
+            return False
+
+        loops += 1
 
     print("All nodes stopped", flush=True)
-
+    return False
 
 
     state_map = utils.get_instance_state_by_id(cluster, states[InstanceState.stopped])

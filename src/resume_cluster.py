@@ -14,6 +14,7 @@ import utils
 from utils import InstanceState
 from hibernate_cluster import get_all_cluster_details
 
+REATTEMPT_THRESHOLD = 3
 
 # === CLUSTER RESUME FUNCTIONS =====================================================================
 def resume_generic_cluster(cluster):
@@ -98,9 +99,9 @@ def resume_hypershift_cluster(cluster:utils.OcCluster, ec2_stopped_map:dict, ec2
         print(f'All instances for cluster {cluster.name} are already running or initializing.', flush=True)
 
     if wait_for_ready:
-        needs_retry = wait_for_rosa_cluster_to_be_ready(cluster, total_requested_nodes)
-        if needs_retry:
-            if attempts < 3:
+        needs_reattempt = wait_for_rosa_cluster_to_be_ready(cluster, total_requested_nodes)
+        if needs_reattempt:
+            if attempts < REATTEMPT_THRESHOLD:
                 ec2_stopped_map, ec2_running_map = utils.get_stopped_and_running_ec2_maps_for_cluster(cluster)
                 resume_hypershift_cluster(cluster, ec2_running_map, ec2_running_map, attempts+1)
             else:
@@ -184,10 +185,11 @@ def trigger_ocm_reprovision_of_missing_nodes(cluster, node_pool_setter: Callable
 
     print(f"\tTemporarily increasing node pool {node_pool_id} to {nodes_desired + nodes_missing}",
               flush=True)
+    original_node_pool_info = get_ocm_node_pool_information(cluster)
     node_pool_setter(node_pool_id, nodes_desired + nodes_missing)
 
     node_pool_info = get_ocm_node_pool_information(cluster)
-    while not all(node_pool["current_replicas"]>=node_pool["replicas"] for node_pool_id, node_pool in node_pool_info.items()):
+    while not all(node_pool["current_replicas"]>=original_node_pool_info[node_pool_id]["replicas"] for node_pool_id, node_pool in node_pool_info.items()):
         print(f"\tWaiting for new nodes to provision and register, currently have:", flush=True)
         for node_pool_id, node_pool in node_pool_info.items():
             print(f"\t\t- {node_pool_id}: {node_pool['current_replicas']}/{node_pool['replicas']}", flush=True)
