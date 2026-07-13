@@ -2,36 +2,21 @@ import json
 import boto3
 import os
 
+import utils
 
-class oc_cluster:
-    def __init__(self, cluster_detail):
-        details = cluster_detail.split(' ')
-        details = [detail for detail in details if detail]
-        self.id = details[0]
-        self.name = details[1]
-        self.api_url = details[2]
-        self.ocp_version = details[3]
-        self.type = details[4]
-        self.hcp = details[5]
-        self.cloud_provider = details[6]
-        self.region = details[7]
-        self.status = details[8]
-        self.nodes = []
+
 def get_cluster_list():
-    run_command('ocm list clusters > clusters.txt')
-def run_command(command):
-    output = os.popen(command).read()
-    print(output)
-    return output
+    utils.run_command('ocm list clusters > clusters.txt')
+
 
 def hibernate_cluster(cluster_name):
     commmand = f'ocm hibernate cluster {cluster_name}'
-    run_command(commmand)
+    utils.run_command(commmand)
     print(f'Hibernated {cluster_name}')
 
 def resume_cluster(cluster_name):
     commmand = f'ocm hibernate cluster {cluster_name}'
-    run_command(commmand)
+    utils.run_command(commmand)
     print(f'Hibernated {cluster_name}')
 def main():
 
@@ -46,7 +31,7 @@ def main():
     get_cluster_list()
     clusters_details = open('clusters.txt').readlines()
     for cluster_detail in clusters_details:
-        clusters.append(oc_cluster(cluster_detail))
+        clusters.append(utils.OcCluster(cluster_detail))
     clusters = [cluster for cluster in clusters if cluster.cloud_provider == 'aws']
     print(len(clusters))
     cluster_names = [cluster.name for cluster in clusters]

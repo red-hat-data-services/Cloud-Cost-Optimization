@@ -22,12 +22,8 @@ def parse_people_details():
 
 
 def get_people_details(org:str):
-    run_command(f'../script/./get_people_details.sh {org}')
+    utils.run_command(f'../script/./get_people_details.sh {org}')
 
-def run_command(command):
-    output = os.popen(command).read()
-    print(output)
-    return output
 
 def build_cells(employee: employee, column_map:dict):
     cells = []
